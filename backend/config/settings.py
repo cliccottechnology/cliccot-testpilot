@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from urllib.parse import urlparse, parse_qs
 from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -19,13 +20,46 @@ TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "APP
     "OPTIONS": {"context_processors": ["django.template.context_processors.request",
     "django.contrib.auth.context_processors.auth", "django.contrib.messages.context_processors.messages"]}}]
 WSGI_APPLICATION = "config.wsgi.application"
-db_engine = os.getenv("DB_ENGINE", "django.db.backends.sqlite3" if not os.getenv("DB_NAME") or str(os.getenv("DB_NAME")).endswith(".sqlite3") else "django.db.backends.postgresql")
-if "sqlite" in db_engine:
-    DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / (os.getenv("DB_NAME") or "db.sqlite3")}}
+
+database_url = os.getenv("DATABASE_URL")
+if database_url:
+    parsed = urlparse(database_url)
+    db_name = parsed.path.lstrip("/")
+    db_user = parsed.username
+    db_password = parsed.password
+    db_host = parsed.hostname
+    db_port = str(parsed.port or "5432")
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": db_name,
+            "USER": db_user,
+            "PASSWORD": db_password,
+            "HOST": db_host,
+            "PORT": db_port,
+        }
+    }
+    query = parse_qs(parsed.query)
+    sslmode = query.get("sslmode", [None])[0] or os.getenv("DB_SSLMODE")
+    if sslmode or (db_host and "render.com" in db_host):
+        DATABASES["default"]["OPTIONS"] = {"sslmode": sslmode or "require"}
 else:
-    DATABASES = {"default": {"ENGINE": db_engine, "NAME": os.getenv("DB_NAME"),
-        "USER": os.getenv("DB_USER"), "PASSWORD": os.getenv("DB_PASSWORD"),
-        "HOST": os.getenv("DB_HOST", "localhost"), "PORT": os.getenv("DB_PORT", "5432")}}
+    db_engine = os.getenv("DB_ENGINE", "django.db.backends.sqlite3" if not os.getenv("DB_NAME") or str(os.getenv("DB_NAME")).endswith(".sqlite3") else "django.db.backends.postgresql")
+    if "sqlite" in db_engine:
+        DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / (os.getenv("DB_NAME") or "db.sqlite3")}}
+    else:
+        db_host = os.getenv("DB_HOST", "localhost")
+        DATABASES = {"default": {
+            "ENGINE": db_engine,
+            "NAME": os.getenv("DB_NAME"),
+            "USER": os.getenv("DB_USER"),
+            "PASSWORD": os.getenv("DB_PASSWORD"),
+            "HOST": db_host,
+            "PORT": os.getenv("DB_PORT", "5432")
+        }}
+        db_sslmode = os.getenv("DB_SSLMODE")
+        if db_sslmode or (db_host and "render.com" in db_host):
+            DATABASES["default"]["OPTIONS"] = {"sslmode": db_sslmode or "require"}
 AUTH_USER_MODEL = "core.User"
 STATIC_URL = "static/"; STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"; MEDIA_ROOT = BASE_DIR / "media"

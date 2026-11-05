@@ -11,6 +11,7 @@ class Command(BaseCommand):
 
         # 1. Users & Roles (Tester, Developer, Admin)
         users_spec = [
+            ("myadmin", "myadmin@cliccot.io", "My", "Admin", "Super Admin", "Admin123!"),
             ("superadmin", "superadmin@cliccot.io", "Super", "Admin", "Super Admin", "Admin123!"),
             ("admin", "admin@cliccot.io", "System", "Admin", "Admin", "Admin123!"),
             ("tester.priya", "priya@cliccot.io", "Priya", "Patel", "Tester", "Tester123!"),
