@@ -29,16 +29,22 @@ WSGI_APPLICATION = "config.wsgi.application"
 DEFAULT_RENDER_INTERNAL_DB = "postgresql://cliccot_testpilot_user:dSyB3sh9a58FzWI48QP99LRqv1ivxfpe@dpg-dbm0lmmc6qcc73fk2dc0-a/cliccot_testpilot"
 DEFAULT_RENDER_EXTERNAL_DB = "postgresql://cliccot_testpilot_user:dSyB3sh9a58FzWI48QP99LRqv1ivxfpe@dpg-dbm0lmmc6qcc73fk2dc0-a.oregon-postgres.render.com/cliccot_testpilot"
 
-is_on_render = os.getenv("RENDER") == "true" or os.getenv("RENDER_SERVICE_ID") is not None
+is_on_render = (
+    os.getenv("RENDER") is not None
+    or os.getenv("RENDER_SERVICE_ID") is not None
+    or os.getenv("RENDER_EXTERNAL_URL") is not None
+    or os.getenv("PORT") is not None
+)
 
 database_url = os.getenv("DATABASE_URL")
 if not database_url:
-    if os.getenv("DB_HOST"):
+    if os.getenv("USE_SQLITE") == "True":
+        pass  # Will fall back to sqlite below
+    elif os.getenv("DB_HOST"):
         pass  # Uses explicit DB_HOST, DB_USER, etc.
-    elif is_on_render:
-        database_url = DEFAULT_RENDER_INTERNAL_DB
-    elif os.getenv("DB_NAME") == "cliccot_testpilot":
-        database_url = DEFAULT_RENDER_EXTERNAL_DB
+    else:
+        # Default directly to Render PostgreSQL (works both locally and on Render)
+        database_url = os.getenv("INTERNAL_DATABASE_URL", DEFAULT_RENDER_EXTERNAL_DB)
 
 if database_url:
     parsed = urlparse(database_url)
