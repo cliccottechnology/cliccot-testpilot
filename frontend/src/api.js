@@ -85,6 +85,9 @@ api.interceptors.response.use(
                 localStorage.removeItem("refresh");
                 localStorage.removeItem("auth_user");
                 broadcastAuthEvent("LOGOUT", { reason: "session_expired" });
+                if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+                  window.location.href = "/login";
+                }
               }
               return Promise.reject(refreshErr);
             })

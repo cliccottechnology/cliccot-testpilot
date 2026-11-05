@@ -21,3 +21,4 @@ services:
     runtime: python
     buildCommand: pip install -r backend/requirements.txt
     startCommand: gunicorn config.wsgi:application --chdir backend
+

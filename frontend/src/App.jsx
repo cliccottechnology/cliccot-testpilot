@@ -18,6 +18,7 @@ const NAV_ITEMS = [
 
 const ROUTE_INFO = {
   "": { section: "Overview", title: "Bug Management Dashboard" },
+  "dashboard": { section: "Overview", title: "Bug Management Dashboard" },
   "projects": { section: "Projects", title: "Project Management" },
   "pages": { section: "Pages", title: "Page Specifications" },
   "bugs": { section: "Defects", title: "Bug Tracker & Resolution Lifecycle" },
@@ -35,6 +36,7 @@ function Login({ onLoginSuccess, dark, setDark }) {
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const nav = useNavigate();
+  const location = useLocation();
 
   const go = async () => {
     if (loading) return;
@@ -71,7 +73,10 @@ function Login({ onLoginSuccess, dark, setDark }) {
       broadcastAuthEvent("LOGIN", { user: meRes.data, access: data.access, refresh: data.refresh });
 
       onLoginSuccess(meRes.data);
-      nav("/");
+      const redirectTarget = location.state?.from?.pathname && location.state.from.pathname !== "/login"
+        ? location.state.from.pathname + (location.state.from.search || "")
+        : "/";
+      nav(redirectTarget, { replace: true });
     } catch (e) {
       console.error("Login failed:", e);
       let serverMsg = "";
@@ -227,6 +232,7 @@ export default function App() {
   const [dark, setDark] = useState(localStorage.theme === "dark");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const verifySession = useCallback(() => {
     const token = localStorage.getItem("access");
@@ -268,6 +274,7 @@ export default function App() {
       } else if (type === "LOGOUT") {
         setMe(null);
         setReady(true);
+        navigate("/login");
       } else if (type === "TOKEN_REFRESH") {
         const token = localStorage.getItem("access");
         if (token && !me) {
@@ -289,6 +296,7 @@ export default function App() {
           verifySession();
         } else {
           setMe(null);
+          navigate("/login");
         }
       } else if (e.key === "auth_user") {
         if (e.newValue) {
@@ -299,6 +307,7 @@ export default function App() {
           }
         } else {
           setMe(null);
+          navigate("/login");
         }
       }
     };
@@ -359,7 +368,8 @@ export default function App() {
   if (!me) {
     return (
       <Routes>
-        <Route path="*" element={<Login onLoginSuccess={user => setMe(user)} dark={dark} setDark={setDark} />} />
+        <Route path="/login" element={<Login onLoginSuccess={user => setMe(user)} dark={dark} setDark={setDark} />} />
+        <Route path="*" element={<Navigate to="/login" replace state={{ from: location }} />} />
       </Routes>
     );
   }
@@ -467,6 +477,7 @@ export default function App() {
                 localStorage.removeItem("auth_user");
                 broadcastAuthEvent("LOGOUT", { reason: "explicit_user_logout" });
                 setMe(null);
+                navigate("/login");
               }}
               title="Sign out"
             >
@@ -478,6 +489,8 @@ export default function App() {
         {/* Dynamic Routes */}
         <Routes>
           <Route path="/" element={<Dashboard role={me.role} currentUserId={me.id} toast={toast} />} />
+          <Route path="/dashboard" element={<Dashboard role={me.role} currentUserId={me.id} toast={toast} />} />
+          <Route path="/login" element={<Navigate to="/" replace />} />
           {Object.keys(RES).map(k => (
             <Route
               key={k}
