@@ -15,6 +15,7 @@ class Stamp(models.Model):
 class User(AbstractUser):
     ROLES = C("Admin", "Developer", "Tester", "Super Admin")
     role = models.CharField(max_length=20, choices=ROLES, default="Tester", db_index=True)
+    created_by = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="created_users")
 
     class Meta:
         ordering = ["id"]
@@ -39,6 +40,7 @@ class Page(Stamp):
     sub_page_name = models.CharField(max_length=200, blank=True) # Sub Page Name
     url_path = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
+    created_by = models.ForeignKey(U, null=True, blank=True, on_delete=models.SET_NULL, related_name="created_pages")
     status = models.CharField(max_length=20, choices=C("Active", "In Development", "Archived"), default="Active", db_index=True)
 
     class Meta(Stamp.Meta):
@@ -66,6 +68,7 @@ class Bug(Stamp):
 
     # Roles involved
     reported_by = models.ForeignKey(U, null=True, blank=True, on_delete=models.SET_NULL, related_name="reported_bugs") # Tester
+    created_by = models.ForeignKey(U, null=True, blank=True, on_delete=models.SET_NULL, related_name="created_bugs")
     assigned_developer = models.ForeignKey(U, null=True, blank=True, on_delete=models.SET_NULL, related_name="assigned_dev_bugs") # Developer
     assigned_tester = models.ForeignKey(U, null=True, blank=True, on_delete=models.SET_NULL, related_name="assigned_tester_bugs") # Tester
 

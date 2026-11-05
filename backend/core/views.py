@@ -18,13 +18,30 @@ class IsSuperAdminOrReadOnly(permissions.BasePermission):
             return True
         return req.user.role == "Super Admin" or req.user.is_superuser
 
+def format_user_detail(user):
+    if not user:
+        return None
+    full_name = f"{user.first_name} {user.last_name}".strip()
+    return {
+        "id": user.id,
+        "username": user.username,
+        "full_name": full_name or user.username,
+        "role": user.role,
+        "email": user.email or "",
+    }
+
 # User Serializer & ViewSet
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    created_by_name = serializers.ReadOnlyField(source="created_by.username")
+    created_by_user = serializers.SerializerMethodField()
 
     class Meta:
         model = m.User
-        fields = ["id", "username", "email", "first_name", "last_name", "role", "is_active", "password"]
+        fields = ["id", "username", "email", "first_name", "last_name", "role", "is_active", "password", "created_by", "created_by_name", "created_by_user", "date_joined"]
+
+    def get_created_by_user(self, obj):
+        return format_user_detail(obj.created_by)
 
     def create(self, validated_data):
         pw = validated_data.pop("password", None)
@@ -48,16 +65,23 @@ class UserViewSet(viewsets.ModelViewSet):
     search_fields = ["username", "email", "first_name", "last_name"]
     filterset_fields = ["role", "is_active"]
 
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
 # Project Serializer & ViewSet
 class ProjectSerializer(serializers.ModelSerializer):
     pages_count = serializers.SerializerMethodField()
     bugs_count = serializers.SerializerMethodField()
     open_bugs_count = serializers.SerializerMethodField()
     created_by_name = serializers.ReadOnlyField(source="created_by.username")
+    created_by_user = serializers.SerializerMethodField()
 
     class Meta:
         model = m.Project
         fields = "__all__"
+
+    def get_created_by_user(self, obj):
+        return format_user_detail(obj.created_by)
 
     def get_pages_count(self, obj):
         return obj.pages.count()
@@ -84,10 +108,16 @@ class PageSerializer(serializers.ModelSerializer):
     display_name = serializers.SerializerMethodField()
     bugs_count = serializers.SerializerMethodField()
     open_bugs_count = serializers.SerializerMethodField()
+    created_by_name = serializers.ReadOnlyField(source="created_by.username")
+    created_by_user = serializers.SerializerMethodField()
 
     class Meta:
         model = m.Page
         fields = "__all__"
+
+    def get_created_by_user(self, obj):
+        creator = obj.created_by or (obj.project.created_by if obj.project else None)
+        return format_user_detail(creator)
 
     def get_display_name(self, obj):
         if obj.sub_page_name:
@@ -106,6 +136,9 @@ class PageViewSet(viewsets.ModelViewSet):
     permission_classes = [BasePermission]
     search_fields = ["name", "sub_page_name", "url_path", "description"]
     filterset_fields = ["project", "status"]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
 
 # Bug History Serializer & ViewSet
 class BugHistorySerializer(serializers.ModelSerializer):
@@ -132,10 +165,20 @@ class BugSerializer(serializers.ModelSerializer):
     reporter_name = serializers.ReadOnlyField(source="reported_by.username")
     developer_name = serializers.ReadOnlyField(source="assigned_developer.username")
     tester_name = serializers.ReadOnlyField(source="assigned_tester.username")
+    created_by_name = serializers.SerializerMethodField()
+    created_by_user = serializers.SerializerMethodField()
 
     class Meta:
         model = m.Bug
         fields = "__all__"
+
+    def get_created_by_name(self, obj):
+        creator = obj.created_by or obj.reported_by
+        return creator.username if creator else ""
+
+    def get_created_by_user(self, obj):
+        creator = obj.created_by or obj.reported_by
+        return format_user_detail(creator)
 
     def get_page_name(self, obj):
         if not obj.page:
@@ -184,7 +227,7 @@ class BugViewSet(viewsets.ModelViewSet):
         page = serializer.validated_data.get("page")
         sub_page = serializer.validated_data.get("sub_page_name") or (page.sub_page_name if page else "")
         init_status = serializer.validated_data.get("status") or ("Assigned" if assigned_dev else "New")
-        bug = serializer.save(reported_by=reporter, status=init_status, sub_page_name=sub_page)
+        bug = serializer.save(reported_by=reporter, created_by=reporter, status=init_status, sub_page_name=sub_page)
 
         # Log history
         m.BugHistory.objects.create(

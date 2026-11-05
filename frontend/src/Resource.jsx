@@ -277,6 +277,46 @@ export default function Resource({ name, toast, role, currentUserId }) {
         </span>
       );
     }
+    if (col === "created_by_user") {
+      const creator = val || (row.created_by_name ? { username: row.created_by_name } : null);
+      if (!creator) {
+        return (
+          <div className="creator-cell" title="System Administrator">
+            <div className="creator-avatar creator-avatar-system">⚙️</div>
+            <div className="creator-text">
+              <span className="creator-name">System Admin</span>
+              <span className="creator-role-tag">Super Admin</span>
+            </div>
+          </div>
+        );
+      }
+
+      const displayName = creator.full_name || creator.username || "User";
+      const initials = (creator.first_name && creator.last_name)
+        ? `${creator.first_name[0]}${creator.last_name[0]}`.toUpperCase()
+        : (displayName.slice(0, 2)).toUpperCase();
+      const roleText = creator.role || "Member";
+      const roleSlug = (creator.role || "default").toLowerCase().replace(/\s+/g, "-");
+
+      return (
+        <div className="creator-cell" title={creator.email ? `${displayName} (${creator.email})` : displayName}>
+          <div className={`creator-avatar creator-role-${roleSlug}`}>
+            {initials}
+          </div>
+          <div className="creator-text">
+            <span className="creator-name">{displayName}</span>
+            <div className="creator-meta">
+              <span className={`creator-role-badge role-${roleSlug}`}>
+                {roleText}
+              </span>
+              {creator.username && creator.username !== displayName && (
+                <span className="creator-username">@{creator.username}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
     if (BADGE_COLUMNS.has(col)) {
       return <StatusBadge value={val} />;
     }
@@ -798,7 +838,9 @@ export default function Resource({ name, toast, role, currentUserId }) {
             <thead>
               <tr>
                 {cfg.cols.map(c => (
-                  <th key={c}>{c.replace(/_/g, " ")}</th>
+                  <th key={c}>
+                    {c === "created_by_user" ? "Created By User" : c.replace(/_/g, " ")}
+                  </th>
                 ))}
                 <th style={{ textAlign: "right" }}>Actions</th>
               </tr>

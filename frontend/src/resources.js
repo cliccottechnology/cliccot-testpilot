@@ -7,7 +7,7 @@ export const RES = {
   projects: {
     title: "Projects",
     desc: "Create and manage projects across your organization",
-    cols: ["name", "status", "pages_count", "bugs_count", "open_bugs_count", "created_at"],
+    cols: ["name", "status", "created_by_user", "pages_count", "bugs_count", "open_bugs_count", "created_at"],
     fields: [
       f("name", "Project Name"),
       f("description", "Description", "area"),
@@ -17,7 +17,7 @@ export const RES = {
   pages: {
     title: "Pages",
     desc: "Create and manage application pages and sub-pages under each project",
-    cols: ["name", "sub_page_name", "project_name", "url_path", "status", "bugs_count", "open_bugs_count"],
+    cols: ["name", "sub_page_name", "project_name", "created_by_user", "url_path", "status", "bugs_count", "open_bugs_count"],
     fields: [
       fk("project", "Project", "projects"),
       f("name", "Page Name"),
@@ -30,7 +30,7 @@ export const RES = {
   bugs: {
     title: "Bugs",
     desc: "Testers create bugs and assign them to developers. Developers fix issues, and testers verify or reopen.",
-    cols: ["code", "title", "project_name", "page_name", "sub_page_name", "severity", "status", "developer_name", "tester_name", "reopen_count"],
+    cols: ["code", "title", "project_name", "page_name", "created_by_user", "severity", "status", "developer_name", "tester_name", "reopen_count"],
     fields: [
       fk("project", "Project", "projects"),
       fk("page", "Page", "pages"),
@@ -49,7 +49,7 @@ export const RES = {
   users: {
     title: "User Roles",
     desc: "Manage team members and user roles (Developer, Tester, Admin)",
-    cols: ["username", "email", "first_name", "last_name", "role", "is_active"],
+    cols: ["username", "email", "first_name", "last_name", "role", "created_by_user", "is_active"],
     fields: [
       f("username", "Username"),
       f("email", "Email Address"),
