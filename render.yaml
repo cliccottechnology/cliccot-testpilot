@@ -1,0 +1,23 @@
+services:
+  # --------------------------------------------------------------------
+  # Frontend Static Site (SPA with Rewrites Fallback)
+  # --------------------------------------------------------------------
+  - type: web
+    name: cliccot-testpilot-3
+    runtime: static
+    buildCommand: npm --prefix frontend run build
+    staticPublishPath: ./frontend/dist
+    routes:
+      # SPA rewrite rule: maps all frontend routes to index.html
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # --------------------------------------------------------------------
+  # Backend API Service (Django + Gunicorn)
+  # --------------------------------------------------------------------
+  - type: web
+    name: cliccot-testpilot-backend
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: gunicorn config.wsgi:application --chdir backend
