@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Routes, Route, NavLink, Navigate, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
-import api from "./api";
+import api, { authChannel, broadcastAuthEvent } from "./api";
 import Dashboard from "./Dashboard";
 import Resource from "./Resource";
 import { RES } from "./resources";
@@ -49,8 +49,13 @@ function Login({ onLoginSuccess, dark, setDark }) {
         password
       });
 
+      const meRes = await axios.get(`${api.defaults.baseURL}/me/`, {
+        headers: { Authorization: `Bearer ${data.access}` }
+      });
+
       localStorage.setItem("access", data.access);
       localStorage.setItem("refresh", data.refresh);
+      localStorage.setItem("auth_user", JSON.stringify(meRes.data));
 
       if (rememberMe) {
         localStorage.setItem("remember_me", "true");
@@ -62,9 +67,8 @@ function Login({ onLoginSuccess, dark, setDark }) {
         localStorage.removeItem("remembered_password");
       }
 
-      const meRes = await axios.get(`${api.defaults.baseURL}/me/`, {
-        headers: { Authorization: `Bearer ${data.access}` }
-      });
+      // Synchronize session across all open browser tabs
+      broadcastAuthEvent("LOGIN", { user: meRes.data, access: data.access, refresh: data.refresh });
 
       onLoginSuccess(meRes.data);
       nav("/");
@@ -208,30 +212,123 @@ function Login({ onLoginSuccess, dark, setDark }) {
 }
 
 export default function App() {
-  const [me, setMe] = useState(null);
-  const [ready, setReady] = useState(false);
+  const getCachedUser = () => {
+    try {
+      const cached = localStorage.getItem("auth_user");
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const [me, setMe] = useState(getCachedUser);
+  const [ready, setReady] = useState(() => Boolean(localStorage.getItem("access") && localStorage.getItem("auth_user")));
   const [msg, setMsg] = useState("");
   const [dark, setDark] = useState(localStorage.theme === "dark");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
 
-  const load = useCallback(() => {
+  const verifySession = useCallback(() => {
     const token = localStorage.getItem("access");
     if (!token) {
+      setMe(null);
       setReady(true);
       return;
     }
     api.get("/me/")
-      .then(r => setMe(r.data))
-      .catch(() => {
-        localStorage.removeItem("access");
-        localStorage.removeItem("refresh");
-        setMe(null);
+      .then(r => {
+        setMe(r.data);
+        localStorage.setItem("auth_user", JSON.stringify(r.data));
+      })
+      .catch(err => {
+        // ONLY clear credentials if server genuinely returns 401 Unauthorized.
+        // Never log out on temporary network blips or server restarts!
+        if (err.response?.status === 401) {
+          localStorage.removeItem("access");
+          localStorage.removeItem("refresh");
+          localStorage.removeItem("auth_user");
+          setMe(null);
+        }
       })
       .finally(() => setReady(true));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    verifySession();
+  }, [verifySession]);
+
+  // Synchronize authentication & sessions across all open browser tabs
+  useEffect(() => {
+    // 1. Cross-tab BroadcastChannel listener
+    const handleBroadcast = event => {
+      const { type, payload } = event.data || {};
+      if (type === "LOGIN" && payload?.user) {
+        setMe(payload.user);
+        setReady(true);
+      } else if (type === "LOGOUT") {
+        setMe(null);
+        setReady(true);
+      } else if (type === "TOKEN_REFRESH") {
+        const token = localStorage.getItem("access");
+        if (token && !me) {
+          verifySession();
+        }
+      }
+    };
+
+    if (authChannel) {
+      authChannel.addEventListener("message", handleBroadcast);
+    }
+
+    // 2. Storage event listener (triggers in all other tabs when localStorage changes)
+    const handleStorageChange = e => {
+      if (e.key === "access") {
+        if (e.newValue) {
+          const cached = getCachedUser();
+          if (cached) setMe(cached);
+          verifySession();
+        } else {
+          setMe(null);
+        }
+      } else if (e.key === "auth_user") {
+        if (e.newValue) {
+          try {
+            setMe(JSON.parse(e.newValue));
+          } catch {
+            verifySession();
+          }
+        } else {
+          setMe(null);
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    // 3. Tab visibility listener (when tab is brought into focus, ensure session is synchronized)
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        const token = localStorage.getItem("access");
+        const cached = getCachedUser();
+        if (token && cached) {
+          if (!me || me.id !== cached.id) {
+            setMe(cached);
+          }
+        } else if (!token && me) {
+          setMe(null);
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      if (authChannel) {
+        authChannel.removeEventListener("message", handleBroadcast);
+      }
+      window.removeEventListener("storage", handleStorageChange);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [verifySession, me]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
@@ -367,6 +464,8 @@ export default function App() {
               onClick={() => {
                 localStorage.removeItem("access");
                 localStorage.removeItem("refresh");
+                localStorage.removeItem("auth_user");
+                broadcastAuthEvent("LOGOUT", { reason: "explicit_user_logout" });
                 setMe(null);
               }}
               title="Sign out"
