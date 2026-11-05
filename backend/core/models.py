@@ -8,6 +8,10 @@ def C(*v): return [(x, x) for x in v]
 class Stamp(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
+    is_deleted = models.BooleanField(default=False, db_index=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey(U, null=True, blank=True, on_delete=models.SET_NULL, related_name="%(app_label)s_%(class)s_deleted")
+
     class Meta:
         abstract = True
         ordering = ["-id"]
@@ -16,6 +20,9 @@ class User(AbstractUser):
     ROLES = C("Admin", "Developer", "Tester", "Super Admin")
     role = models.CharField(max_length=20, choices=ROLES, default="Tester", db_index=True)
     created_by = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="created_users")
+    is_deleted = models.BooleanField(default=False, db_index=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="deleted_users")
 
     class Meta:
         ordering = ["id"]
@@ -104,3 +111,18 @@ class Notification(Stamp):
     user = models.ForeignKey(U, on_delete=models.CASCADE, related_name="notifications")
     message = models.CharField(max_length=300)
     is_read = models.BooleanField(default=False)
+
+class DeleteAuditLog(Stamp):
+    MODULE_CHOICES = C("Project", "Page", "Bug", "User")
+    module = models.CharField(max_length=20, choices=MODULE_CHOICES, db_index=True)
+    record_id = models.IntegerField(db_index=True)
+    record_name = models.CharField(max_length=255)
+    action = models.CharField(max_length=20, default="Deleted") # "Deleted", "Restored", "Permanently Deleted"
+    user = models.ForeignKey(U, null=True, blank=True, on_delete=models.SET_NULL, related_name="delete_audit_actions")
+    details = models.JSONField(default=dict, blank=True)
+
+    class Meta(Stamp.Meta):
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"[{self.module}] {self.record_name} - {self.action} by {self.user}"

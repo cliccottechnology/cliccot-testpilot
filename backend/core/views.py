@@ -1,4 +1,5 @@
 from django.db.models import Count, Q
+from django.utils import timezone
 from rest_framework import viewsets, permissions, serializers, status
 from rest_framework.decorators import api_view, action
 from rest_framework.response import Response
@@ -30,18 +31,122 @@ def format_user_detail(user):
         "email": user.email or "",
     }
 
+class SoftDeleteViewSetMixin:
+    module_name = "Record"
+
+    def get_module_name(self):
+        return getattr(self, "module_name", "Record")
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        include_deleted = self.request.query_params.get("include_deleted") == "true"
+        is_deleted_filter = self.request.query_params.get("is_deleted") == "true"
+
+        if self.action in ["restore", "permanent"]:
+            return qs
+        if self.action == "deleted" or is_deleted_filter:
+            return qs.filter(is_deleted=True)
+        if not include_deleted:
+            return qs.filter(is_deleted=False)
+        return qs
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if request.query_params.get("permanent") == "true":
+            record_name = str(instance)
+            instance.delete()
+            m.DeleteAuditLog.objects.create(
+                module=self.get_module_name(),
+                record_id=kwargs.get("pk"),
+                record_name=record_name,
+                action="Permanently Deleted",
+                user=request.user
+            )
+            return Response({"detail": f"{self.get_module_name()} permanently deleted."}, status=status.HTTP_200_OK)
+
+        if isinstance(instance, m.User) and instance.id == request.user.id:
+            return Response({"detail": "You cannot delete your own user account."}, status=status.HTTP_400_BAD_REQUEST)
+
+        instance.is_deleted = True
+        instance.deleted_at = timezone.now()
+        instance.deleted_by = request.user
+        if isinstance(instance, m.User):
+            instance.is_active = False
+        instance.save()
+
+        m.DeleteAuditLog.objects.create(
+            module=self.get_module_name(),
+            record_id=instance.id,
+            record_name=str(instance),
+            action="Deleted",
+            user=request.user
+        )
+        return Response({"detail": f"{self.get_module_name()} moved to Delete History."}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
+    def restore(self, request, pk=None):
+        instance = self.get_object()
+        instance.is_deleted = False
+        instance.deleted_at = None
+        instance.deleted_by = None
+        if isinstance(instance, m.User):
+            instance.is_active = True
+        instance.save()
+
+        m.DeleteAuditLog.objects.create(
+            module=self.get_module_name(),
+            record_id=instance.id,
+            record_name=str(instance),
+            action="Restored",
+            user=request.user
+        )
+        return Response({"detail": f"{self.get_module_name()} restored successfully."}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["get"])
+    def deleted(self, request):
+        qs = self.filter_queryset(self.get_queryset().filter(is_deleted=True))
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["delete"])
+    def permanent(self, request, pk=None):
+        instance = self.get_object()
+        record_name = str(instance)
+        instance.delete()
+        m.DeleteAuditLog.objects.create(
+            module=self.get_module_name(),
+            record_id=pk,
+            record_name=record_name,
+            action="Permanently Deleted",
+            user=request.user
+        )
+        return Response({"detail": f"{self.get_module_name()} permanently deleted."}, status=status.HTTP_200_OK)
+
 # User Serializer & ViewSet
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, allow_blank=True)
     created_by_name = serializers.ReadOnlyField(source="created_by.username")
     created_by_user = serializers.SerializerMethodField()
+    deleted_by_name = serializers.ReadOnlyField(source="deleted_by.username")
+    deleted_by_user = serializers.SerializerMethodField()
 
     class Meta:
         model = m.User
-        fields = ["id", "username", "email", "first_name", "last_name", "role", "is_active", "password", "created_by", "created_by_name", "created_by_user", "date_joined"]
+        fields = [
+            "id", "username", "email", "first_name", "last_name", "role", "is_active", "password",
+            "created_by", "created_by_name", "created_by_user",
+            "is_deleted", "deleted_at", "deleted_by", "deleted_by_name", "deleted_by_user", "date_joined"
+        ]
 
     def get_created_by_user(self, obj):
         return format_user_detail(obj.created_by)
+
+    def get_deleted_by_user(self, obj):
+        return format_user_detail(obj.deleted_by)
 
     def create(self, validated_data):
         pw = validated_data.pop("password", None)
@@ -58,12 +163,13 @@ class UserSerializer(serializers.ModelSerializer):
             user.save()
         return user
 
-class UserViewSet(viewsets.ModelViewSet):
+class UserViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+    module_name = "User"
     queryset = m.User.objects.all().order_by("id")
     serializer_class = UserSerializer
     permission_classes = [IsSuperAdminOrReadOnly]
     search_fields = ["username", "email", "first_name", "last_name"]
-    filterset_fields = ["role", "is_active"]
+    filterset_fields = ["role", "is_active", "is_deleted"]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -75,6 +181,8 @@ class ProjectSerializer(serializers.ModelSerializer):
     open_bugs_count = serializers.SerializerMethodField()
     created_by_name = serializers.ReadOnlyField(source="created_by.username")
     created_by_user = serializers.SerializerMethodField()
+    deleted_by_name = serializers.ReadOnlyField(source="deleted_by.username")
+    deleted_by_user = serializers.SerializerMethodField()
 
     class Meta:
         model = m.Project
@@ -83,21 +191,25 @@ class ProjectSerializer(serializers.ModelSerializer):
     def get_created_by_user(self, obj):
         return format_user_detail(obj.created_by)
 
+    def get_deleted_by_user(self, obj):
+        return format_user_detail(obj.deleted_by)
+
     def get_pages_count(self, obj):
-        return obj.pages.count()
+        return obj.pages.filter(is_deleted=False).count()
 
     def get_bugs_count(self, obj):
-        return obj.bugs.count()
+        return obj.bugs.filter(is_deleted=False).count()
 
     def get_open_bugs_count(self, obj):
-        return obj.bugs.exclude(status__in=["Verified", "Closed"]).count()
+        return obj.bugs.filter(is_deleted=False).exclude(status__in=["Verified", "Closed"]).count()
 
-class ProjectViewSet(viewsets.ModelViewSet):
+class ProjectViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+    module_name = "Project"
     queryset = m.Project.objects.all().order_by("-id")
     serializer_class = ProjectSerializer
     permission_classes = [BasePermission]
     search_fields = ["name", "description"]
-    filterset_fields = ["status"]
+    filterset_fields = ["status", "is_deleted"]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -110,6 +222,8 @@ class PageSerializer(serializers.ModelSerializer):
     open_bugs_count = serializers.SerializerMethodField()
     created_by_name = serializers.ReadOnlyField(source="created_by.username")
     created_by_user = serializers.SerializerMethodField()
+    deleted_by_name = serializers.ReadOnlyField(source="deleted_by.username")
+    deleted_by_user = serializers.SerializerMethodField()
 
     class Meta:
         model = m.Page
@@ -119,23 +233,27 @@ class PageSerializer(serializers.ModelSerializer):
         creator = obj.created_by or (obj.project.created_by if obj.project else None)
         return format_user_detail(creator)
 
+    def get_deleted_by_user(self, obj):
+        return format_user_detail(obj.deleted_by)
+
     def get_display_name(self, obj):
         if obj.sub_page_name:
             return f"{obj.name} > {obj.sub_page_name}"
         return obj.name
 
     def get_bugs_count(self, obj):
-        return obj.bugs.count()
+        return obj.bugs.filter(is_deleted=False).count()
 
     def get_open_bugs_count(self, obj):
-        return obj.bugs.exclude(status__in=["Verified", "Closed"]).count()
+        return obj.bugs.filter(is_deleted=False).exclude(status__in=["Verified", "Closed"]).count()
 
-class PageViewSet(viewsets.ModelViewSet):
+class PageViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+    module_name = "Page"
     queryset = m.Page.objects.all().order_by("-id")
     serializer_class = PageSerializer
     permission_classes = [BasePermission]
     search_fields = ["name", "sub_page_name", "url_path", "description"]
-    filterset_fields = ["project", "status"]
+    filterset_fields = ["project", "status", "is_deleted"]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -167,6 +285,8 @@ class BugSerializer(serializers.ModelSerializer):
     tester_name = serializers.ReadOnlyField(source="assigned_tester.username")
     created_by_name = serializers.SerializerMethodField()
     created_by_user = serializers.SerializerMethodField()
+    deleted_by_name = serializers.ReadOnlyField(source="deleted_by.username")
+    deleted_by_user = serializers.SerializerMethodField()
 
     class Meta:
         model = m.Bug
@@ -179,6 +299,9 @@ class BugSerializer(serializers.ModelSerializer):
     def get_created_by_user(self, obj):
         creator = obj.created_by or obj.reported_by
         return format_user_detail(creator)
+
+    def get_deleted_by_user(self, obj):
+        return format_user_detail(obj.deleted_by)
 
     def get_page_name(self, obj):
         if not obj.page:
@@ -208,17 +331,28 @@ class BugSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"fix_notes": "Every bug fix must include a description of what was changed before submitting or marking as Fixed."})
         return data
 
-class BugViewSet(viewsets.ModelViewSet):
+class BugViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+    module_name = "Bug"
     serializer_class = BugSerializer
     permission_classes = [BasePermission]
     search_fields = ["title", "description", "sub_page_name", "steps_to_reproduce", "fix_notes", "verification_notes"]
-    filterset_fields = ["project", "sub_page_name", "severity", "priority", "status", "assigned_developer", "assigned_tester", "reported_by"]
+    filterset_fields = ["project", "sub_page_name", "severity", "priority", "status", "assigned_developer", "assigned_tester", "reported_by", "is_deleted"]
 
     def get_queryset(self):
         qs = m.Bug.objects.all().order_by("-id")
         page_id = self.request.query_params.get("page_id") or self.request.query_params.get("page_filter")
         if page_id and str(page_id).isdigit():
             qs = qs.filter(page_id=int(page_id))
+
+        include_deleted = self.request.query_params.get("include_deleted") == "true"
+        is_deleted_filter = self.request.query_params.get("is_deleted") == "true"
+
+        if self.action in ["restore", "permanent"]:
+            return qs
+        if self.action == "deleted" or is_deleted_filter:
+            return qs.filter(is_deleted=True)
+        if not include_deleted:
+            return qs.filter(is_deleted=False)
         return qs
 
     def perform_create(self, serializer):
@@ -448,6 +582,25 @@ class BugViewSet(viewsets.ModelViewSet):
         )
         return Response(BugSerializer(bug).data)
 
+# Delete Audit Log ViewSet
+class DeleteAuditLogSerializer(serializers.ModelSerializer):
+    user_name = serializers.ReadOnlyField(source="user.username")
+    user_detail = serializers.SerializerMethodField()
+
+    class Meta:
+        model = m.DeleteAuditLog
+        fields = "__all__"
+
+    def get_user_detail(self, obj):
+        return format_user_detail(obj.user)
+
+class DeleteAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = m.DeleteAuditLog.objects.all().order_by("-created_at", "-id")
+    serializer_class = DeleteAuditLogSerializer
+    permission_classes = [BasePermission]
+    filterset_fields = ["module", "action", "user"]
+    search_fields = ["record_name", "action"]
+
 # Notification ViewSet
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
@@ -481,8 +634,8 @@ def me(req):
 def dashboard(req):
     pid = req.query_params.get("project")
 
-    bugs_qs = m.Bug.objects.all()
-    pages_qs = m.Page.objects.all()
+    bugs_qs = m.Bug.objects.filter(is_deleted=False)
+    pages_qs = m.Page.objects.filter(is_deleted=False)
     if pid:
         bugs_qs = bugs_qs.filter(project_id=pid)
         pages_qs = pages_qs.filter(project_id=pid)
@@ -533,7 +686,7 @@ def dashboard(req):
     )
 
     return Response({
-        "projects_count": m.Project.objects.count(),
+        "projects_count": m.Project.objects.filter(is_deleted=False).count(),
         "pages_count": pages_qs.count(),
         "total_bugs": bugs_qs.count(),
         "open_bugs": open_count,

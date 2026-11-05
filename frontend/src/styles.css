@@ -2144,3 +2144,110 @@ tbody tr:last-child td {
   font-size: 11px;
   color: var(--tx-muted, #64748b);
 }
+
+/* ==========================================================================
+   Module Navigation Tabs (Active Records vs Delete History)
+   ========================================================================== */
+.module-view-tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: 1px;
+}
+
+.module-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--tx-secondary);
+  cursor: pointer;
+  transition: all var(--tr-fast);
+}
+
+.module-tab:hover {
+  color: var(--tx-primary);
+  background: var(--bg-hover);
+}
+
+.module-tab.active {
+  color: var(--pri);
+  border-bottom-color: var(--pri);
+  background: var(--bg-surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.module-tab.tab-deleted.active {
+  color: #e11d48;
+  border-bottom-color: #e11d48;
+}
+
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  background: var(--bg-subtle);
+  color: var(--tx-secondary);
+  min-width: 22px;
+  height: 20px;
+  transition: all var(--tr-fast);
+}
+
+.module-tab.active .tab-badge {
+  background: rgba(79, 70, 229, 0.12);
+  color: var(--pri);
+}
+
+.tab-badge-danger,
+.module-tab.tab-deleted.active .tab-badge-danger {
+  background: rgba(225, 29, 72, 0.12) !important;
+  color: #e11d48 !important;
+  border: 1px solid rgba(225, 29, 72, 0.25);
+}
+
+/* Delete History Information Banner */
+.delete-history-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.08), rgba(225, 29, 72, 0.03));
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  border-left: 4px solid #e11d48;
+  border-radius: var(--radius-lg);
+  animation: fadeIn 0.15s ease-out;
+}
+
+.dh-icon {
+  font-size: 26px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.dh-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+  color: var(--tx-secondary);
+  line-height: 1.45;
+}
+
+.dh-text b {
+  color: #be123c;
+  font-size: 13.5px;
+  font-weight: 700;
+}

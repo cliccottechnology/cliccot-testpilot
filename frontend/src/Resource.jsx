@@ -8,13 +8,23 @@ import Spinner from "./Spinner";
 
 const BADGE_COLUMNS = new Set(["status", "priority", "severity", "role", "is_active"]);
 
+const DELETED_COLS = {
+  projects: ["name", "status", "created_by_user", "deleted_by_user", "deleted_at"],
+  pages: ["name", "sub_page_name", "project_name", "created_by_user", "deleted_by_user", "deleted_at"],
+  bugs: ["code", "title", "project_name", "page_name", "severity", "deleted_by_user", "deleted_at"],
+  users: ["username", "email", "role", "created_by_user", "deleted_by_user", "deleted_at"],
+};
+
 export default function Resource({ name, toast, role, currentUserId }) {
   const cfg = RES[name];
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
+  const [tab, setTab] = useState("active"); // "active" | "deleted"
   const [rows, setRows] = useState([]);
   const [count, setCount] = useState(0);
+  const [activeCount, setActiveCount] = useState(0);
+  const [deletedCount, setDeletedCount] = useState(0);
   const [page, setPage] = useState(1);
   const [q, setQ] = useState("");
   const [form, setForm] = useState(null);
@@ -24,6 +34,9 @@ export default function Resource({ name, toast, role, currentUserId }) {
   const [selectedBug, setSelectedBug] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [restoringId, setRestoringId] = useState(null);
+  const [permDeletingId, setPermDeletingId] = useState(null);
+  const [confirmPermanent, setConfirmPermanent] = useState(null);
   const [loadingBugId, setLoadingBugId] = useState(null);
 
   // Filters for Bugs & Pages
@@ -90,7 +103,8 @@ export default function Resource({ name, toast, role, currentUserId }) {
   // Fetch resource records with active filters
   const load = useCallback(() => {
     setBusy(true);
-    const params = { page, search: q };
+    const isDeleted = tab === "deleted";
+    const params = { page, search: q, is_deleted: isDeleted };
 
     if (name === "bugs") {
       if (filterProject) params.project = filterProject;
@@ -110,21 +124,44 @@ export default function Resource({ name, toast, role, currentUserId }) {
       if (filterRole) params.role = filterRole;
     }
 
+    // 1. Fetch current tab dataset
     api.get(`/${name}/`, { params })
       .then(r => {
         setRows(r.data.results || []);
-        setCount(r.data.count || 0);
+        const total = r.data.count || 0;
+        setCount(total);
+        if (isDeleted) {
+          setDeletedCount(total);
+        } else {
+          setActiveCount(total);
+        }
       })
       .catch(() => toast("Failed to load records"))
       .finally(() => setBusy(false));
-  }, [name, page, q, filterProject, filterPage, filterStatus, filterSeverity, filterMyBugs, filterRole, currentUserId, role]);
+
+    // 2. Query opposite count to keep badge in sync
+    api.get(`/${name}/`, { params: { is_deleted: !isDeleted, page_size: 1 } })
+      .then(r => {
+        const otherCount = r.data.count || 0;
+        if (isDeleted) {
+          setActiveCount(otherCount);
+        } else {
+          setDeletedCount(otherCount);
+        }
+      })
+      .catch(() => {});
+  }, [name, page, q, tab, filterProject, filterPage, filterStatus, filterSeverity, filterMyBugs, filterRole, currentUserId, role]);
 
   useEffect(() => {
     setPage(1);
+    setTab("active");
     setRows([]);
     setCount(0);
+    setActiveCount(0);
+    setDeletedCount(0);
     setForm(null);
     setSelectedBug(null);
+    setConfirmPermanent(null);
   }, [name]);
 
   useEffect(load, [load]);
@@ -224,20 +261,46 @@ export default function Resource({ name, toast, role, currentUserId }) {
     }
   };
 
-  // Delete Record
-  const del = async id => {
-    if (deletingId) return;
-    if (!confirm("Are you sure you want to delete this record?")) return;
-    setDeletingId(id);
+  // Delete Record (Soft delete to Delete History, or Permanent delete)
+  const del = async (id, isPermanent = false) => {
+    if (deletingId || permDeletingId) return;
+    if (!isPermanent) {
+      if (!confirm("Move this record to Delete History? You can restore it at any time.")) return;
+      setDeletingId(id);
+    } else {
+      setPermDeletingId(id);
+    }
+
     try {
-      await api.delete(`/${name}/${id}/`);
-      toast("Record deleted successfully");
+      const url = isPermanent ? `/${name}/${id}/permanent/` : `/${name}/${id}/`;
+      const res = await api.delete(url, { params: isPermanent ? { permanent: true } : {} });
+      toast(res.data?.detail || (isPermanent ? "Record permanently deleted." : "Record moved to Delete History."));
       load();
       loadOptions();
-    } catch {
-      toast("Action not permitted");
+    } catch (e) {
+      const err = e.response?.data?.detail || "Delete operation failed.";
+      toast(`⚠️ ${err}`);
     } finally {
       setDeletingId(null);
+      setPermDeletingId(null);
+      setConfirmPermanent(null);
+    }
+  };
+
+  // Restore Record from Delete History
+  const restoreRecord = async id => {
+    if (restoringId) return;
+    setRestoringId(id);
+    try {
+      const res = await api.post(`/${name}/${id}/restore/`);
+      toast(res.data?.detail || "Record restored successfully!");
+      load();
+      loadOptions();
+    } catch (e) {
+      const err = e.response?.data?.detail || "Restore operation failed.";
+      toast(`⚠️ ${err}`);
+    } finally {
+      setRestoringId(null);
     }
   };
 
@@ -317,6 +380,58 @@ export default function Resource({ name, toast, role, currentUserId }) {
         </div>
       );
     }
+    if (col === "deleted_by_user") {
+      const deleter = val || (row.deleted_by_name ? { username: row.deleted_by_name } : null);
+      if (!deleter) {
+        return (
+          <div className="creator-cell" title="System / Admin Deletion">
+            <div className="creator-avatar creator-avatar-system">🗑️</div>
+            <div className="creator-text">
+              <span className="creator-name">Admin</span>
+              <span className="creator-role-tag">Super Admin</span>
+            </div>
+          </div>
+        );
+      }
+
+      const displayName = deleter.full_name || deleter.username || "User";
+      const initials = (deleter.first_name && deleter.last_name)
+        ? `${deleter.first_name[0]}${deleter.last_name[0]}`.toUpperCase()
+        : (displayName.slice(0, 2)).toUpperCase();
+      const roleText = deleter.role || "Member";
+      const roleSlug = (deleter.role || "default").toLowerCase().replace(/\s+/g, "-");
+
+      return (
+        <div className="creator-cell" title={deleter.email ? `${displayName} (${deleter.email})` : displayName}>
+          <div className={`creator-avatar creator-role-${roleSlug}`}>
+            {initials}
+          </div>
+          <div className="creator-text">
+            <span className="creator-name">{displayName}</span>
+            <div className="creator-meta">
+              <span className={`creator-role-badge role-${roleSlug}`}>
+                {roleText}
+              </span>
+              {deleter.username && deleter.username !== displayName && (
+                <span className="creator-username">@{deleter.username}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    if (col === "deleted_at") {
+      if (!val) return <span style={{ color: "var(--tx-muted)" }}>-</span>;
+      const d = new Date(val);
+      const dateStr = d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+      const timeStr = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--tx-primary)" }}>{dateStr}</span>
+          <span style={{ fontSize: 11, color: "var(--tx-muted)" }}>{timeStr}</span>
+        </div>
+      );
+    }
     if (BADGE_COLUMNS.has(col)) {
       return <StatusBadge value={val} />;
     }
@@ -360,6 +475,11 @@ export default function Resource({ name, toast, role, currentUserId }) {
     return allPages.filter(p => String(p.project) === String(form.project) || String(p.project_id) === String(form.project));
   }, [form?.project, opts.page, opts.pages]);
 
+  // Columns to display based on active records tab vs delete history tab
+  const displayCols = useMemo(() => {
+    return tab === "deleted" ? (DELETED_COLS[name] || cfg.cols) : cfg.cols;
+  }, [tab, name, cfg.cols]);
+
   return (
     <div className="page">
       {/* Module Header */}
@@ -367,35 +487,87 @@ export default function Resource({ name, toast, role, currentUserId }) {
         <div className="page-title-wrap">
           <h2>{cfg.title}</h2>
           <p>
-            {name === "bugs"
+            {tab === "deleted"
+              ? `Deleted records archive for ${cfg.title.toLowerCase()}. Review who deleted each item and restore when needed.`
+              : name === "bugs"
               ? "Testers can create bugs and assign them to developers. Developers fix issues, and testers verify or reopen."
               : cfg.desc || `Manage and view ${cfg.title.toLowerCase()}`}
           </p>
         </div>
-        {canWrite && (
-          <button
-            className="btn-pri"
-            onClick={() => {
-              if (name === "bugs") {
-                openNewBugModal();
-              } else {
-                const init = {};
-                if (name === "pages") {
-                  if (filterProject) {
-                    init.project = Number(filterProject);
-                  } else if (opts.project?.length) {
-                    init.project = opts.project[0].id;
+        {tab === "active" ? (
+          canWrite && (
+            <button
+              className="btn-pri"
+              onClick={() => {
+                if (name === "bugs") {
+                  openNewBugModal();
+                } else {
+                  const init = {};
+                  if (name === "pages") {
+                    if (filterProject) {
+                      init.project = Number(filterProject);
+                    } else if (opts.project?.length) {
+                      init.project = opts.project[0].id;
+                    }
+                    init.status = "Active";
                   }
-                  init.status = "Active";
+                  openForm(init);
                 }
-                openForm(init);
-              }
-            }}
+              }}
+            >
+              <span>+</span> {name === "bugs" ? "🐛 Report Bug & Assign Dev" : name === "users" ? "Create New User Role" : `New ${cfg.title.replace(/s$/, "")}`}
+            </button>
+          )
+        ) : (
+          <button
+            type="button"
+            className="btn-sec"
+            onClick={() => { setTab("active"); setPage(1); }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
           >
-            <span>+</span> {name === "bugs" ? "🐛 Report Bug & Assign Dev" : name === "users" ? "Create New User Role" : `New ${cfg.title.replace(/s$/, "")}`}
+            <span>←</span>
+            <span>Back to Active {cfg.title}</span>
           </button>
         )}
       </div>
+
+      {/* Module View Tabs (Active Records vs Delete History) */}
+      <div className="module-view-tabs">
+        <button
+          type="button"
+          className={`module-tab ${tab === "active" ? "active" : ""}`}
+          onClick={() => { setTab("active"); setPage(1); }}
+        >
+          <span className="tab-icon">📋</span>
+          <span className="tab-label">Active {cfg.title}</span>
+          <span className="tab-badge">{tab === "active" ? count : activeCount}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`module-tab ${tab === "deleted" ? "active tab-deleted" : ""}`}
+          onClick={() => { setTab("deleted"); setPage(1); }}
+        >
+          <span className="tab-icon">🗑️</span>
+          <span className="tab-label">Delete History</span>
+          <span className={`tab-badge ${deletedCount > 0 ? "tab-badge-danger" : ""}`}>
+            {tab === "deleted" ? count : deletedCount}
+          </span>
+        </button>
+      </div>
+
+      {/* Delete History Information Banner */}
+      {tab === "deleted" && (
+        <div className="delete-history-banner">
+          <div className="dh-icon">🗑️</div>
+          <div className="dh-text">
+            <b>Delete History Audit & Recovery Center ({cfg.title})</b>
+            <span>
+              All deleted {cfg.title.toLowerCase()} are archived here with deletion details (who deleted & timestamp). You can restore any record back to active records at any time or permanently delete it.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Filter & Search Bar */}
       <div className="card" style={{ padding: "12px 16px", marginBottom: 16 }}>
@@ -805,13 +977,22 @@ export default function Resource({ name, toast, role, currentUserId }) {
             <p style={{ margin: 0, fontWeight: 500 }}>Loading {cfg.title.toLowerCase()}…</p>
           </div>
         ) : !rows.length ? (
-          <div className="table-empty" style={{ padding: "36px 16px" }}>
-            <span style={{ fontSize: 32 }}>📂</span>
-            <p style={{ marginTop: 8, fontSize: 14 }}>No records found in {cfg.title}.</p>
-            {canWrite && (
+          <div className="table-empty" style={{ padding: "40px 16px" }}>
+            <span style={{ fontSize: 36 }}>{tab === "deleted" ? "🎉" : "📂"}</span>
+            <p style={{ marginTop: 10, fontSize: 14, fontWeight: 600, color: "var(--tx-primary)" }}>
+              {tab === "deleted"
+                ? `No deleted ${cfg.title.toLowerCase()} found in history.`
+                : `No records found in ${cfg.title}.`}
+            </p>
+            <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "var(--tx-muted)" }}>
+              {tab === "deleted"
+                ? "When items are deleted, they will be archived here with recovery options."
+                : "Get started by creating your first entry."}
+            </p>
+            {canWrite && tab === "active" && (
               <button
                 className="btn-pri btn-sm"
-                style={{ marginTop: 12 }}
+                style={{ marginTop: 14 }}
                 onClick={() => {
                   if (name === "bugs") {
                     openNewBugModal();
@@ -837,9 +1018,21 @@ export default function Resource({ name, toast, role, currentUserId }) {
           <table>
             <thead>
               <tr>
-                {cfg.cols.map(c => (
+                {displayCols.map(c => (
                   <th key={c}>
-                    {c === "created_by_user" ? "Created By User" : c.replace(/_/g, " ")}
+                    {c === "created_by_user"
+                      ? "Created By User"
+                      : c === "deleted_by_user"
+                      ? "Deleted By (User)"
+                      : c === "deleted_at"
+                      ? "Deletion Date & Time"
+                      : c === "project_name"
+                      ? "Project"
+                      : c === "page_name"
+                      ? "Page"
+                      : c === "sub_page_name"
+                      ? "Sub Page"
+                      : c.replace(/_/g, " ")}
                   </th>
                 ))}
                 <th style={{ textAlign: "right" }}>Actions</th>
@@ -848,112 +1041,162 @@ export default function Resource({ name, toast, role, currentUserId }) {
             <tbody>
               {rows.map(r => (
                 <tr key={r.id}>
-                  {cfg.cols.map(c => (
+                  {displayCols.map(c => (
                     <td key={c}>{renderCell(c, r[c], r)}</td>
                   ))}
                   <td style={{ textAlign: "right" }}>
-                    <div style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                      {/* Projects Custom Actions */}
-                      {name === "projects" && (
-                        <>
-                          <button
-                            type="button"
-                            className="btn-sec btn-sm"
-                            onClick={() => navigate(`/pages?project=${r.id}`)}
-                            title="View all pages under this project"
-                          >
-                            📄 Pages ({r.pages_count || 0})
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-sec btn-sm"
-                            onClick={() => navigate(`/bugs?project=${r.id}`)}
-                            title="View all bugs under this project"
-                          >
-                            🐛 Bugs ({r.bugs_count || 0})
-                          </button>
-                        </>
-                      )}
-
-                      {/* Pages Custom Actions */}
-                      {name === "pages" && (
-                        <>
-                          <button
-                            type="button"
-                            className="btn-sec btn-sm"
-                            onClick={() => navigate(`/bugs?page_id=${r.id}`)}
-                            title="View all bugs linked to this page"
-                          >
-                            🐛 Bugs ({r.bugs_count || 0})
-                          </button>
-                          {canWrite && (
+                    {tab === "deleted" ? (
+                      <div style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap", alignItems: "center" }}>
+                        {canWrite && (
+                          <>
                             <button
                               type="button"
-                              className="btn-pri btn-sm"
-                              onClick={() => {
-                                navigate(`/bugs?newBug=1&project=${r.project}&page=${r.id}`);
-                              }}
-                              title="Report a bug directly on this page"
+                              className={`btn-suc btn-sm ${restoringId === r.id ? "is-loading" : ""}`}
+                              disabled={restoringId === r.id || permDeletingId === r.id}
+                              onClick={() => restoreRecord(r.id)}
+                              title="Restore this record back to active records"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                             >
-                              + Report Bug
+                              {restoringId === r.id ? (
+                                <>
+                                  <Spinner size={12} color="#fff" />
+                                  <span>Restoring…</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>♻️</span>
+                                  <span>Restore</span>
+                                </>
+                              )}
                             </button>
-                          )}
-                        </>
-                      )}
 
-                      {/* Bugs Custom Action (Review & History Action Center) */}
-                      {name === "bugs" && (
-                        <button
-                          type="button"
-                          className={`btn-pri btn-sm ${loadingBugId === r.id ? "is-loading" : ""}`}
-                          disabled={loadingBugId === r.id || deletingId === r.id}
-                          onClick={() => openBugModal(r)}
-                          title="Open developer fix, tester verification, or reopen modal"
-                          style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
-                        >
-                          {loadingBugId === r.id ? (
-                            <>
-                              <Spinner size={12} color="#fff" />
-                              <span>Loading…</span>
-                            </>
-                          ) : (
-                            "🔍 Actions & History"
-                          )}
-                        </button>
-                      )}
+                            <button
+                              type="button"
+                              className={`btn-dng btn-sm ${permDeletingId === r.id ? "is-loading" : ""}`}
+                              disabled={restoringId === r.id || permDeletingId === r.id}
+                              onClick={() => setConfirmPermanent(r)}
+                              title="Permanently remove from database (Cannot be undone)"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+                            >
+                              {permDeletingId === r.id ? (
+                                <>
+                                  <Spinner size={12} color="var(--dng-text)" />
+                                  <span>Deleting…</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>🗑️</span>
+                                  <span>Delete Permanently</span>
+                                </>
+                              )}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                        {/* Projects Custom Actions */}
+                        {name === "projects" && (
+                          <>
+                            <button
+                              type="button"
+                              className="btn-sec btn-sm"
+                              onClick={() => navigate(`/pages?project=${r.id}`)}
+                              title="View all pages under this project"
+                            >
+                              📄 Pages ({r.pages_count || 0})
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-sec btn-sm"
+                              onClick={() => navigate(`/bugs?project=${r.id}`)}
+                              title="View all bugs under this project"
+                            >
+                              🐛 Bugs ({r.bugs_count || 0})
+                            </button>
+                          </>
+                        )}
 
-                      {canWrite && (
-                        <button
-                          type="button"
-                          className="btn-sec btn-sm"
-                          disabled={deletingId === r.id}
-                          onClick={() => openForm(r)}
-                          title="Edit Record"
-                        >
-                          Edit
-                        </button>
-                      )}
+                        {/* Pages Custom Actions */}
+                        {name === "pages" && (
+                          <>
+                            <button
+                              type="button"
+                              className="btn-sec btn-sm"
+                              onClick={() => navigate(`/bugs?page_id=${r.id}`)}
+                              title="View all bugs linked to this page"
+                            >
+                              🐛 Bugs ({r.bugs_count || 0})
+                            </button>
+                            {canWrite && (
+                              <button
+                                type="button"
+                                className="btn-pri btn-sm"
+                                onClick={() => {
+                                  navigate(`/bugs?newBug=1&project=${r.project}&page=${r.id}`);
+                                }}
+                                title="Report a bug directly on this page"
+                              >
+                                + Report Bug
+                              </button>
+                            )}
+                          </>
+                        )}
 
-                      {canWrite && (
-                        <button
-                          type="button"
-                          className={`btn-dng btn-sm ${deletingId === r.id ? "is-loading" : ""}`}
-                          disabled={deletingId === r.id}
-                          onClick={() => del(r.id)}
-                          title="Delete Record"
-                          style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
-                        >
-                          {deletingId === r.id ? (
-                            <>
-                              <Spinner size={12} color="var(--dng-text)" />
-                              <span>Deleting…</span>
-                            </>
-                          ) : (
-                            "Delete"
-                          )}
-                        </button>
-                      )}
-                    </div>
+                        {/* Bugs Custom Action (Review & History Action Center) */}
+                        {name === "bugs" && (
+                          <button
+                            type="button"
+                            className={`btn-pri btn-sm ${loadingBugId === r.id ? "is-loading" : ""}`}
+                            disabled={loadingBugId === r.id || deletingId === r.id}
+                            onClick={() => openBugModal(r)}
+                            title="Open developer fix, tester verification, or reopen modal"
+                            style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+                          >
+                            {loadingBugId === r.id ? (
+                              <>
+                                <Spinner size={12} color="#fff" />
+                                <span>Loading…</span>
+                              </>
+                            ) : (
+                              "🔍 Actions & History"
+                            )}
+                          </button>
+                        )}
+
+                        {canWrite && (
+                          <button
+                            type="button"
+                            className="btn-sec btn-sm"
+                            disabled={deletingId === r.id}
+                            onClick={() => openForm(r)}
+                            title="Edit Record"
+                          >
+                            Edit
+                          </button>
+                        )}
+
+                        {canWrite && (
+                          <button
+                            type="button"
+                            className={`btn-dng btn-sm ${deletingId === r.id ? "is-loading" : ""}`}
+                            disabled={deletingId === r.id || (name === "users" && r.id === currentUserId)}
+                            onClick={() => del(r.id)}
+                            title={name === "users" && r.id === currentUserId ? "You cannot delete your own account" : "Delete Record (Move to Delete History)"}
+                            style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+                          >
+                            {deletingId === r.id ? (
+                              <>
+                                <Spinner size={12} color="var(--dng-text)" />
+                                <span>Deleting…</span>
+                              </>
+                            ) : (
+                              "Delete"
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1005,6 +1248,78 @@ export default function Resource({ name, toast, role, currentUserId }) {
           bugsList={rows}
           onSelectBug={nextBug => setSelectedBug(nextBug)}
         />
+      )}
+
+      {/* Permanent Deletion Confirmation Modal */}
+      {confirmPermanent && (
+        <div className="modal-backdrop" onClick={() => setConfirmPermanent(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: "50%",
+                  background: "rgba(239, 68, 68, 0.12)",
+                  color: "var(--dng-text)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 22,
+                  flexShrink: 0,
+                }}
+              >
+                ⚠️
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--tx-primary)" }}>
+                  Permanent Deletion
+                </h3>
+                <span style={{ fontSize: 12, color: "var(--tx-muted)" }}>
+                  This action cannot be undone
+                </span>
+              </div>
+            </div>
+
+            <p style={{ fontSize: 14, color: "var(--tx-secondary)", lineHeight: 1.55, margin: "14px 0 22px" }}>
+              Are you sure you want to permanently delete{" "}
+              <b style={{ color: "var(--tx-primary)" }}>
+                {confirmPermanent.name || confirmPermanent.title || confirmPermanent.username || `Record #${confirmPermanent.id}`}
+              </b>?
+              {" "}This record will be permanently purged from the database and will no longer be recoverable.
+            </p>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button
+                type="button"
+                className="btn-sec"
+                disabled={permDeletingId === confirmPermanent.id}
+                onClick={() => setConfirmPermanent(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`btn-dng ${permDeletingId === confirmPermanent.id ? "is-loading" : ""}`}
+                disabled={permDeletingId === confirmPermanent.id}
+                onClick={() => del(confirmPermanent.id, true)}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+              >
+                {permDeletingId === confirmPermanent.id ? (
+                  <>
+                    <Spinner size={14} color="#fff" />
+                    <span>Purging Record…</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🗑️</span>
+                    <span>Confirm Permanent Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

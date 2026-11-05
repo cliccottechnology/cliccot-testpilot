@@ -10,6 +10,8 @@ router.register("bugs", v.BugViewSet, basename="bugs")
 router.register("bug-histories", v.BugHistoryViewSet, basename="bug-histories")
 router.register("users", v.UserViewSet, basename="users")
 router.register("notifications", v.NotificationViewSet, basename="notifications")
+router.register("delete-history", v.DeleteAuditLogViewSet, basename="delete-history")
+router.register("delete-audit", v.DeleteAuditLogViewSet, basename="delete-audit")
 
 urlpatterns = [
     path("auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
