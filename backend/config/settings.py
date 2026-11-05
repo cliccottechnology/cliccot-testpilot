@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 from datetime import timedelta
 from urllib.parse import urlparse, parse_qs
@@ -26,8 +27,12 @@ TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "APP
     "django.contrib.auth.context_processors.auth", "django.contrib.messages.context_processors.messages"]}}]
 WSGI_APPLICATION = "config.wsgi.application"
 
+# ====================================================================
+# ENVIRONMENT-BASED DATABASE CONFIGURATION (Local vs Render)
+# ====================================================================
 DEFAULT_RENDER_INTERNAL_DB = "postgresql://cliccot_testpilot_user:dSyB3sh9a58FzWI48QP99LRqv1ivxfpe@dpg-dbm0lmmc6qcc73fk2dc0-a/cliccot_testpilot"
 DEFAULT_RENDER_EXTERNAL_DB = "postgresql://cliccot_testpilot_user:dSyB3sh9a58FzWI48QP99LRqv1ivxfpe@dpg-dbm0lmmc6qcc73fk2dc0-a.oregon-postgres.render.com/cliccot_testpilot"
+DEFAULT_LOCAL_DB = "postgresql://postgres:root@127.0.0.1:5432/cliccot_testflow"
 
 is_on_render = (
     os.getenv("RENDER") is not None
@@ -36,15 +41,62 @@ is_on_render = (
     or os.getenv("PORT") is not None
 )
 
-database_url = os.getenv("DATABASE_URL")
-if not database_url:
-    if os.getenv("USE_SQLITE") == "True":
-        pass  # Will fall back to sqlite below
-    elif os.getenv("DB_HOST"):
-        pass  # Uses explicit DB_HOST, DB_USER, etc.
+# Active environment switch: 'local' (development) | 'render' (cloud testing)
+env_flag = os.getenv("ACTIVE_ENV") or os.getenv("ENVIRONMENT")
+
+# Read raw environment variables from .env
+raw_database_url = os.getenv("DATABASE_URL")
+raw_db_host = os.getenv("DB_HOST")
+raw_db_name = os.getenv("DB_NAME")
+raw_db_user = os.getenv("DB_USER")
+raw_db_password = os.getenv("DB_PASSWORD")
+raw_db_port = os.getenv("DB_PORT", "5432")
+raw_db_engine = os.getenv("DB_ENGINE")
+raw_db_sslmode = os.getenv("DB_SSLMODE")
+
+# Determine active_env
+if env_flag:
+    active_env = env_flag.lower().strip()
+elif is_on_render:
+    active_env = "render"
+elif (raw_db_host and "render.com" in raw_db_host) or (raw_database_url and "render.com" in raw_database_url) or raw_db_name == "cliccot_testpilot":
+    active_env = "render"
+else:
+    active_env = "local"
+
+# Database resolution
+database_url = None
+db_engine = raw_db_engine
+db_name = raw_db_name
+db_user = raw_db_user
+db_password = raw_db_password
+db_host = raw_db_host
+db_port = raw_db_port
+db_sslmode = raw_db_sslmode
+
+if active_env in ["render", "production", "prod", "test"]:
+    if raw_database_url and ("render.com" in raw_database_url or "dpg-" in raw_database_url):
+        database_url = raw_database_url
+    elif raw_db_host and ("render.com" in raw_db_host or "dpg-" in raw_db_host):
+        database_url = None
+        db_sslmode = raw_db_sslmode or "require"
     else:
-        # Default directly to Render PostgreSQL (works both locally and on Render)
-        database_url = os.getenv("INTERNAL_DATABASE_URL", DEFAULT_RENDER_EXTERNAL_DB)
+        database_url = DEFAULT_RENDER_INTERNAL_DB if is_on_render else DEFAULT_RENDER_EXTERNAL_DB
+        db_sslmode = "require"
+
+elif active_env in ["local", "development", "dev"]:
+    if os.getenv("USE_SQLITE") == "True":
+        db_engine = "django.db.backends.sqlite3"
+        db_name = "db.sqlite3"
+        database_url = None
+    elif raw_database_url and "render.com" not in raw_database_url and "dpg-" not in raw_database_url:
+        database_url = raw_database_url
+    elif raw_db_host and "render.com" not in raw_db_host and "dpg-" not in raw_db_host:
+        database_url = None
+        db_sslmode = raw_db_sslmode or "disable"
+    else:
+        database_url = DEFAULT_LOCAL_DB
+        db_sslmode = "disable"
 
 if database_url:
     parsed = urlparse(database_url)
@@ -53,37 +105,45 @@ if database_url:
     db_password = parsed.password
     db_host = parsed.hostname
     db_port = str(parsed.port or "5432")
+    db_engine = "django.db.backends.postgresql"
+    query = parse_qs(parsed.query)
+    ssl_query = query.get("sslmode", [None])[0]
+    if ssl_query:
+        db_sslmode = ssl_query
+    elif not db_sslmode and db_host and "render.com" in db_host:
+        db_sslmode = "require"
+
+if not db_engine:
+    if os.getenv("USE_SQLITE") == "True" or (db_name and str(db_name).endswith(".sqlite3")):
+        db_engine = "django.db.backends.sqlite3"
+    else:
+        db_engine = "django.db.backends.postgresql"
+
+if "sqlite" in db_engine:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / (str(db_name) if db_name else "db.sqlite3"),
+        }
+    }
+else:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": db_name,
-            "USER": db_user,
-            "PASSWORD": db_password,
-            "HOST": db_host,
-            "PORT": db_port,
+            "NAME": db_name or ("cliccot_testflow" if active_env == "local" else "cliccot_testpilot"),
+            "USER": db_user or ("postgres" if active_env == "local" else "cliccot_testpilot_user"),
+            "PASSWORD": db_password or ("root" if active_env == "local" else "dSyB3sh9a58FzWI48QP99LRqv1ivxfpe"),
+            "HOST": db_host or ("127.0.0.1" if active_env == "local" else "dpg-dbm0lmmc6qcc73fk2dc0-a.oregon-postgres.render.com"),
+            "PORT": str(db_port or "5432"),
         }
     }
-    query = parse_qs(parsed.query)
-    sslmode = query.get("sslmode", [None])[0] or os.getenv("DB_SSLMODE")
-    if sslmode or (db_host and "render.com" in db_host):
-        DATABASES["default"]["OPTIONS"] = {"sslmode": sslmode or "require"}
-else:
-    db_engine = os.getenv("DB_ENGINE", "django.db.backends.sqlite3" if not os.getenv("DB_NAME") or str(os.getenv("DB_NAME")).endswith(".sqlite3") else "django.db.backends.postgresql")
-    if "sqlite" in db_engine:
-        DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / (os.getenv("DB_NAME") or "db.sqlite3")}}
-    else:
-        db_host = os.getenv("DB_HOST", "localhost")
-        DATABASES = {"default": {
-            "ENGINE": db_engine,
-            "NAME": os.getenv("DB_NAME"),
-            "USER": os.getenv("DB_USER"),
-            "PASSWORD": os.getenv("DB_PASSWORD"),
-            "HOST": db_host,
-            "PORT": os.getenv("DB_PORT", "5432")
-        }}
-        db_sslmode = os.getenv("DB_SSLMODE")
-        if db_sslmode or (db_host and "render.com" in db_host):
-            DATABASES["default"]["OPTIONS"] = {"sslmode": db_sslmode or "require"}
+    if db_sslmode and db_sslmode != "disable":
+        DATABASES["default"]["OPTIONS"] = {"sslmode": db_sslmode}
+
+if any(cmd in sys.argv for cmd in ["runserver", "shell", "check"]):
+    curr_db = DATABASES["default"]
+    print(f"--> [BugFlow Environment: {active_env.upper()}] Connected to: {curr_db.get('NAME')} on {curr_db.get('HOST') or 'localhost'}")
+
 AUTH_USER_MODEL = "core.User"
 STATIC_URL = "static/"; STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"; MEDIA_ROOT = BASE_DIR / "media"
