@@ -7,7 +7,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only")
 DEBUG = os.getenv("DEBUG", "True") == "True"
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
+raw_allowed_hosts = os.getenv("ALLOWED_HOSTS", "*").split(",")
+ALLOWED_HOSTS = [h.strip() for h in raw_allowed_hosts if h.strip()]
+if "*" not in ALLOWED_HOSTS:
+    for host in ["cliccot-testpilot-3.onrender.com", ".onrender.com", "localhost", "127.0.0.1"]:
+        if host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(host)
 INSTALLED_APPS = ["django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
     "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles",
     "rest_framework", "django_filters", "corsheaders", "core"]
@@ -64,10 +69,28 @@ AUTH_USER_MODEL = "core.User"
 STATIC_URL = "static/"; STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"; MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = ["*"]
-CORS_ALLOWED_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+CORS_ALLOW_METHODS = ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"]
+
+cors_env = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,https://cliccot-testpilot-3.onrender.com")
+CORS_ALLOWED_ORIGINS = [orig.strip().rstrip("/") for orig in cors_env.split(",") if orig.strip()]
+if "https://cliccot-testpilot-3.onrender.com" not in CORS_ALLOWED_ORIGINS:
+    CORS_ALLOWED_ORIGINS.append("https://cliccot-testpilot-3.onrender.com")
+
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https:\/\/.*\.onrender\.com$",
+    r"^http:\/\/localhost:[0-9]+$",
+    r"^http:\/\/127\.0\.0\.1:[0-9]+$",
+]
+
+csrf_env = os.getenv("CSRF_TRUSTED_ORIGINS", "https://cliccot-testpilot-3.onrender.com,https://*.onrender.com,http://localhost:5173,http://127.0.0.1:5173")
+CSRF_TRUSTED_ORIGINS = [orig.strip().rstrip("/") for orig in csrf_env.split(",") if orig.strip()]
+if "https://cliccot-testpilot-3.onrender.com" not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append("https://cliccot-testpilot-3.onrender.com")
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework_simplejwt.authentication.JWTAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
