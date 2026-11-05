@@ -10,7 +10,7 @@ DEBUG = os.getenv("DEBUG", "True") == "True"
 raw_allowed_hosts = os.getenv("ALLOWED_HOSTS", "*").split(",")
 ALLOWED_HOSTS = [h.strip() for h in raw_allowed_hosts if h.strip()]
 if "*" not in ALLOWED_HOSTS:
-    for host in ["cliccot-testpilot-3.onrender.com", ".onrender.com", "localhost", "127.0.0.1"]:
+    for host in ["cliccot-testpilot-3.onrender.com", "cliccot-testpilot-backend.onrender.com", ".onrender.com", "localhost", "127.0.0.1"]:
         if host not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append(host)
 INSTALLED_APPS = ["django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
@@ -26,7 +26,20 @@ TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "APP
     "django.contrib.auth.context_processors.auth", "django.contrib.messages.context_processors.messages"]}}]
 WSGI_APPLICATION = "config.wsgi.application"
 
+DEFAULT_RENDER_INTERNAL_DB = "postgresql://cliccot_testpilot_user:dSyB3sh9a58FzWI48QP99LRqv1ivxfpe@dpg-dbm0lmmc6qcc73fk2dc0-a/cliccot_testpilot"
+DEFAULT_RENDER_EXTERNAL_DB = "postgresql://cliccot_testpilot_user:dSyB3sh9a58FzWI48QP99LRqv1ivxfpe@dpg-dbm0lmmc6qcc73fk2dc0-a.oregon-postgres.render.com/cliccot_testpilot"
+
+is_on_render = os.getenv("RENDER") == "true" or os.getenv("RENDER_SERVICE_ID") is not None
+
 database_url = os.getenv("DATABASE_URL")
+if not database_url:
+    if os.getenv("DB_HOST"):
+        pass  # Uses explicit DB_HOST, DB_USER, etc.
+    elif is_on_render:
+        database_url = DEFAULT_RENDER_INTERNAL_DB
+    elif os.getenv("DB_NAME") == "cliccot_testpilot":
+        database_url = DEFAULT_RENDER_EXTERNAL_DB
+
 if database_url:
     parsed = urlparse(database_url)
     db_name = parsed.path.lstrip("/")
@@ -74,10 +87,11 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = ["*"]
 CORS_ALLOW_METHODS = ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"]
 
-cors_env = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,https://cliccot-testpilot-3.onrender.com")
+cors_env = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,https://cliccot-testpilot-3.onrender.com,https://cliccot-testpilot-backend.onrender.com")
 CORS_ALLOWED_ORIGINS = [orig.strip().rstrip("/") for orig in cors_env.split(",") if orig.strip()]
-if "https://cliccot-testpilot-3.onrender.com" not in CORS_ALLOWED_ORIGINS:
-    CORS_ALLOWED_ORIGINS.append("https://cliccot-testpilot-3.onrender.com")
+for orig in ["https://cliccot-testpilot-3.onrender.com", "https://cliccot-testpilot-backend.onrender.com"]:
+    if orig not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(orig)
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https:\/\/.*\.onrender\.com$",
@@ -85,10 +99,11 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^http:\/\/127\.0\.0\.1:[0-9]+$",
 ]
 
-csrf_env = os.getenv("CSRF_TRUSTED_ORIGINS", "https://cliccot-testpilot-3.onrender.com,https://*.onrender.com,http://localhost:5173,http://127.0.0.1:5173")
+csrf_env = os.getenv("CSRF_TRUSTED_ORIGINS", "https://cliccot-testpilot-3.onrender.com,https://cliccot-testpilot-backend.onrender.com,https://*.onrender.com,http://localhost:5173,http://127.0.0.1:5173")
 CSRF_TRUSTED_ORIGINS = [orig.strip().rstrip("/") for orig in csrf_env.split(",") if orig.strip()]
-if "https://cliccot-testpilot-3.onrender.com" not in CSRF_TRUSTED_ORIGINS:
-    CSRF_TRUSTED_ORIGINS.append("https://cliccot-testpilot-3.onrender.com")
+for orig in ["https://cliccot-testpilot-3.onrender.com", "https://cliccot-testpilot-backend.onrender.com"]:
+    if orig not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(orig)
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 REST_FRAMEWORK = {

@@ -72,9 +72,9 @@ function Login({ onLoginSuccess, dark, setDark }) {
       console.error("Login failed:", e);
       let serverMsg = "";
       if (!e.response) {
-        serverMsg = "Unable to connect to backend server. Please make sure the BugFlow Django backend is running at http://127.0.0.1:8000.";
+        serverMsg = `Unable to connect to backend server (${api.defaults.baseURL}). Please verify your network connection and ensure the backend service is running.`;
       } else if (typeof e.response.data === "string" && (e.response.data.includes("<!DOCTYPE") || e.response.data.includes("<html"))) {
-        serverMsg = `Backend endpoint error (${e.response.status}). A different server may be running on port 8000. Please start the BugFlow backend.`;
+        serverMsg = `Backend endpoint error (${e.response.status}) at ${api.defaults.baseURL}. Please verify the backend service is operational.`;
       } else if (e.response.data?.detail) {
         serverMsg = e.response.data.detail;
       } else if (e.response.data && typeof e.response.data === "object") {
