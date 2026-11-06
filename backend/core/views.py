@@ -168,7 +168,7 @@ class UserViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     queryset = m.User.objects.all().order_by("id")
     serializer_class = UserSerializer
     permission_classes = [IsSuperAdminOrReadOnly]
-    search_fields = ["username", "email", "first_name", "last_name"]
+    search_fields = ["username", "email", "first_name", "last_name", "role"]
     filterset_fields = ["role", "is_active", "is_deleted"]
 
     def perform_create(self, serializer):
@@ -252,8 +252,8 @@ class PageViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     queryset = m.Page.objects.all().order_by("-id")
     serializer_class = PageSerializer
     permission_classes = [BasePermission]
-    search_fields = ["name", "sub_page_name", "url_path", "description"]
-    filterset_fields = ["project", "status", "is_deleted"]
+    search_fields = ["name", "sub_page_name", "project__name", "url_path", "description"]
+    filterset_fields = ["project", "sub_page_name", "status", "is_deleted"]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -306,8 +306,6 @@ class BugSerializer(serializers.ModelSerializer):
     def get_page_name(self, obj):
         if not obj.page:
             return ""
-        if obj.page.sub_page_name:
-            return f"{obj.page.name} > {obj.page.sub_page_name}"
         return obj.page.name
 
     def to_representation(self, instance):
@@ -335,14 +333,82 @@ class BugViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     module_name = "Bug"
     serializer_class = BugSerializer
     permission_classes = [BasePermission]
-    search_fields = ["title", "description", "sub_page_name", "steps_to_reproduce", "fix_notes", "verification_notes"]
+    search_fields = [
+        "title",
+        "description",
+        "project__name",
+        "page__name",
+        "sub_page_name",
+        "steps_to_reproduce",
+        "fix_notes",
+        "verification_notes",
+        "assigned_developer__username",
+        "assigned_developer__first_name",
+        "assigned_developer__last_name",
+        "assigned_tester__username",
+        "reported_by__username",
+        "created_by__username",
+    ]
     filterset_fields = ["project", "sub_page_name", "severity", "priority", "status", "assigned_developer", "assigned_tester", "reported_by", "is_deleted"]
 
     def get_queryset(self):
         qs = m.Bug.objects.all().order_by("-id")
+
+        # Page & Subpage filtering
         page_id = self.request.query_params.get("page_id") or self.request.query_params.get("page_filter")
+        page_name = self.request.query_params.get("page_name")
+        sub_page = self.request.query_params.get("sub_page_name") or self.request.query_params.get("sub_page")
+
         if page_id and str(page_id).isdigit():
-            qs = qs.filter(page_id=int(page_id))
+            selected_page = m.Page.objects.filter(id=int(page_id)).first()
+            if selected_page:
+                if not sub_page:
+                    matching_ids = list(m.Page.objects.filter(project_id=selected_page.project_id, name=selected_page.name).values_list("id", flat=True))
+                    qs = qs.filter(page_id__in=matching_ids)
+                else:
+                    qs = qs.filter(page_id=int(page_id))
+            else:
+                qs = qs.filter(page_id=int(page_id))
+        elif page_name:
+            qs = qs.filter(page__name__iexact=page_name)
+
+        if sub_page:
+            qs = qs.filter(Q(sub_page_name__iexact=sub_page) | Q(page__sub_page_name__iexact=sub_page))
+
+        # Comprehensive Multi-Field Search (Code, Title, Project, Page, Subpage, Dev, Tester, Reporter)
+        search_term = self.request.query_params.get("search", "").strip()
+        if search_term:
+            search_q = (
+                Q(title__icontains=search_term)
+                | Q(description__icontains=search_term)
+                | Q(project__name__icontains=search_term)
+                | Q(page__name__icontains=search_term)
+                | Q(sub_page_name__icontains=search_term)
+                | Q(page__sub_page_name__icontains=search_term)
+                | Q(steps_to_reproduce__icontains=search_term)
+                | Q(fix_notes__icontains=search_term)
+                | Q(verification_notes__icontains=search_term)
+                | Q(assigned_developer__username__icontains=search_term)
+                | Q(assigned_developer__first_name__icontains=search_term)
+                | Q(assigned_developer__last_name__icontains=search_term)
+                | Q(assigned_tester__username__icontains=search_term)
+                | Q(assigned_tester__first_name__icontains=search_term)
+                | Q(assigned_tester__last_name__icontains=search_term)
+                | Q(reported_by__username__icontains=search_term)
+                | Q(created_by__username__icontains=search_term)
+                | Q(severity__iexact=search_term)
+                | Q(status__iexact=search_term)
+            )
+
+            # Match Bug Code number like "BUG-0007", "BUG-7", "0007", "7"
+            digits = "".join(filter(str.isdigit, search_term))
+            if digits:
+                try:
+                    search_q |= Q(id=int(digits))
+                except (ValueError, TypeError):
+                    pass
+
+            qs = qs.filter(search_q).distinct()
 
         include_deleted = self.request.query_params.get("include_deleted") == "true"
         is_deleted_filter = self.request.query_params.get("is_deleted") == "true"
@@ -354,6 +420,13 @@ class BugViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
         if not include_deleted:
             return qs.filter(is_deleted=False)
         return qs
+
+    def filter_queryset(self, queryset):
+        for backend in list(self.filter_backends):
+            if backend.__name__ == "SearchFilter":
+                continue
+            queryset = backend().filter_queryset(self.request, queryset, self)
+        return queryset
 
     def perform_create(self, serializer):
         reporter = self.request.user

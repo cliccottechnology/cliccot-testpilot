@@ -5,43 +5,43 @@ const STATUS_MAP = {
   pass: "badge-success",
   active: "badge-success",
   approved: "badge-success",
-  fixed: "badge-success",
-  verified: "badge-success",
+  fixed: "badge-fixed",
+  verified: "badge-verified",
   resolved: "badge-success",
   completed: "badge-success",
 
   // Danger (Red / Rose)
   fail: "badge-danger",
-  critical: "badge-danger",
+  critical: "badge-critical",
   rejected: "badge-danger",
-  reopened: "badge-danger",
-  admin: "badge-danger",
+  reopened: "badge-reopened",
+
+  // Corporate Navy / Roles / Assigned
+  admin: "badge-navy",
+  superadmin: "badge-navy",
+  developer: "badge-primary",
+  assigned: "badge-assigned",
 
   // Warning (Amber / Orange)
-  inprogress: "badge-warning",
-  major: "badge-warning",
+  inprogress: "badge-inprogress",
+  major: "badge-major",
   high: "badge-warning",
   medium: "badge-warning",
   tester: "badge-warning",
   qa: "badge-warning",
 
-  // Info (Sky Blue)
-  minor: "badge-info",
-  new: "badge-info",
-  assigned: "badge-info",
+  // Info (Sky Blue / Cyan)
+  minor: "badge-minor",
+  new: "badge-new",
   low: "badge-info",
-  developer: "badge-info",
 
-  // Purple
-  superadmin: "badge-purple",
-
-  // Neutral (Slate)
-  closed: "badge-neutral",
+  // Neutral (Corporate Navy Slate)
+  closed: "badge-closed",
   blocked: "badge-neutral",
   draft: "badge-neutral",
   archived: "badge-neutral",
   onhold: "badge-neutral",
-  trivial: "badge-neutral",
+  trivial: "badge-trivial",
 };
 
 export default function StatusBadge({ value }) {

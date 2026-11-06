@@ -30,7 +30,7 @@ export const RES = {
   bugs: {
     title: "Bugs",
     desc: "Testers create bugs and assign them to developers. Developers fix issues, and testers verify or reopen.",
-    cols: ["code", "title", "project_name", "page_name", "created_by_user", "severity", "status", "developer_name", "tester_name", "reopen_count"],
+    cols: ["code", "title", "project_name", "page_name", "created_by_user", "severity", "status", "developer_name", "tester_name"],
     fields: [
       fk("project", "Project", "projects"),
       fk("page", "Page", "pages"),

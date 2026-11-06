@@ -26,6 +26,7 @@ export default function Resource({ name, toast, role, currentUserId }) {
   const [activeCount, setActiveCount] = useState(0);
   const [deletedCount, setDeletedCount] = useState(0);
   const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
   const [q, setQ] = useState("");
   const [form, setForm] = useState(null);
   const [opts, setOpts] = useState({ project: [], projects: [], page: [], pages: [], users: [] });
@@ -42,6 +43,7 @@ export default function Resource({ name, toast, role, currentUserId }) {
   // Filters for Bugs & Pages
   const [filterProject, setFilterProject] = useState(searchParams.get("project") || "");
   const [filterPage, setFilterPage] = useState(searchParams.get("page_id") || searchParams.get("page") || "");
+  const [filterSubPage, setFilterSubPage] = useState(searchParams.get("sub_page") || searchParams.get("sub_page_name") || "");
   const [filterStatus, setFilterStatus] = useState(searchParams.get("status") || "");
   const [filterSeverity, setFilterSeverity] = useState("");
   const [filterMyBugs, setFilterMyBugs] = useState(false);
@@ -50,13 +52,24 @@ export default function Resource({ name, toast, role, currentUserId }) {
   const isSuperAdmin = role === "Super Admin";
   const canWrite = name === "users" ? isSuperAdmin : role !== "Viewer";
 
+  // Debounce search input to avoid race conditions and rapid queries
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setQ(searchInput.trim());
+      setPage(1);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   // Sync url query params
   useEffect(() => {
     const proj = searchParams.get("project");
     const pg = searchParams.get("page_id") || searchParams.get("page");
+    const sub = searchParams.get("sub_page") || searchParams.get("sub_page_name");
     const st = searchParams.get("status");
     if (proj) setFilterProject(proj);
     if (pg) setFilterPage(pg);
+    if (sub) setFilterSubPage(sub);
     if (st) setFilterStatus(st);
   }, [searchParams]);
 
@@ -104,11 +117,13 @@ export default function Resource({ name, toast, role, currentUserId }) {
   const load = useCallback(() => {
     setBusy(true);
     const isDeleted = tab === "deleted";
-    const params = { page, search: q, is_deleted: isDeleted };
+    const params = { page, is_deleted: isDeleted };
+    if (q) params.search = q;
 
     if (name === "bugs") {
       if (filterProject) params.project = filterProject;
       if (filterPage) params.page_id = filterPage;
+      if (filterSubPage) params.sub_page_name = filterSubPage;
       if (filterStatus) params.status = filterStatus;
       if (filterSeverity) params.severity = filterSeverity;
       if (filterMyBugs && currentUserId) {
@@ -150,9 +165,11 @@ export default function Resource({ name, toast, role, currentUserId }) {
         }
       })
       .catch(() => {});
-  }, [name, page, q, tab, filterProject, filterPage, filterStatus, filterSeverity, filterMyBugs, filterRole, currentUserId, role]);
+  }, [name, page, q, tab, filterProject, filterPage, filterSubPage, filterStatus, filterSeverity, filterMyBugs, filterRole, currentUserId, role]);
 
   useEffect(() => {
+    setSearchInput("");
+    setQ("");
     setPage(1);
     setTab("active");
     setRows([]);
@@ -162,6 +179,7 @@ export default function Resource({ name, toast, role, currentUserId }) {
     setForm(null);
     setSelectedBug(null);
     setConfirmPermanent(null);
+    setFilterSubPage("");
   }, [name]);
 
   useEffect(load, [load]);
@@ -308,34 +326,78 @@ export default function Resource({ name, toast, role, currentUserId }) {
   const renderCell = (col, val, row) => {
     if (col === "sub_page_name") {
       return val ? (
-        <span style={{ fontWeight: 600, color: "var(--pri)" }}>{val}</span>
+        <span style={{ fontWeight: 600, color: "var(--primary)" }}>{val}</span>
       ) : (
-        <span style={{ color: "var(--tx-muted)" }}>-</span>
+        <span style={{ color: "var(--muted)" }}>-</span>
       );
     }
     if (col === "code") {
       return (
         <span
-          className="mono"
-          style={{ fontWeight: 800, color: "var(--pri)", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+          className="bug-code-cell"
           onClick={() => openBugModal(row)}
           title="Click to view bug fix & verification details"
         >
-          {loadingBugId === row.id && <Spinner size={12} color="var(--pri)" />}
+          {loadingBugId === row.id && <Spinner size={12} color="var(--primary)" />}
           {val || "-"}
         </span>
+      );
+    }
+    if (col === "page_name") {
+      const raw = val || row.page_name || "";
+      const cleanPage = raw ? raw.split(" > ")[0] : "";
+      if (!cleanPage) return <span style={{ color: "var(--muted)" }}>-</span>;
+      return (
+        <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", whiteSpace: "nowrap" }}>
+          {cleanPage}
+        </span>
+      );
+    }
+    if (col === "sub_page_name") {
+      const sub = val || row.sub_page_name || "";
+      if (!sub) return <span style={{ color: "var(--muted)" }}>-</span>;
+      return (
+        <span style={{ fontSize: 13, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+          {sub}
+        </span>
+      );
+    }
+    if (col === "project_name") {
+      return (
+        <span className="bug-project-cell" title={val || ""}>
+          {val || "-"}
+        </span>
+      );
+    }
+    if (col === "developer_name" || col === "tester_name") {
+      return val ? (
+        <span className="bug-assignee-text">{val}</span>
+      ) : (
+        <span style={{ color: "var(--muted)", fontStyle: "italic", fontSize: 12 }}>Unassigned</span>
+      );
+    }
+    if (col === "status") {
+      return (
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <StatusBadge value={val} />
+          {row.reopen_count > 0 && (
+            <span className="badge badge-reopened" title={`Reopened ${row.reopen_count} time(s)`} style={{ fontSize: 10, padding: "2px 7px" }}>
+              {row.reopen_count}x
+            </span>
+          )}
+        </div>
       );
     }
     if (col === "reopen_count") {
       if (val > 0) {
         return <span className="badge badge-danger">Reopened {val}x</span>;
       }
-      return <span style={{ color: "var(--tx-muted)" }}>0</span>;
+      return <span style={{ color: "var(--muted)" }}>0</span>;
     }
     if (col === "pages_count" || col === "bugs_count" || col === "open_bugs_count") {
       const isPositive = Number(val) > 0;
       return (
-        <span style={{ fontWeight: 600, color: col === "open_bugs_count" && isPositive ? "var(--dng-text)" : "var(--tx-primary)" }}>
+        <span style={{ fontWeight: 600, color: col === "open_bugs_count" && isPositive ? "var(--dng-text)" : "var(--text-primary)" }}>
           {val ?? 0}
         </span>
       );
@@ -372,7 +434,7 @@ export default function Resource({ name, toast, role, currentUserId }) {
               <span className={`creator-role-badge role-${roleSlug}`}>
                 {roleText}
               </span>
-              {creator.username && creator.username !== displayName && (
+              {creator.username && (
                 <span className="creator-username">@{creator.username}</span>
               )}
             </div>
@@ -421,14 +483,14 @@ export default function Resource({ name, toast, role, currentUserId }) {
       );
     }
     if (col === "deleted_at") {
-      if (!val) return <span style={{ color: "var(--tx-muted)" }}>-</span>;
+      if (!val) return <span style={{ color: "var(--muted)" }}>-</span>;
       const d = new Date(val);
       const dateStr = d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
       const timeStr = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
       return (
         <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--tx-primary)" }}>{dateStr}</span>
-          <span style={{ fontSize: 11, color: "var(--tx-muted)" }}>{timeStr}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{dateStr}</span>
+          <span style={{ fontSize: 11, color: "var(--muted)" }}>{timeStr}</span>
         </div>
       );
     }
@@ -437,9 +499,9 @@ export default function Resource({ name, toast, role, currentUserId }) {
     }
     if (val === true) return <StatusBadge value={true} />;
     if (val === false) return <StatusBadge value={false} />;
-    if (val === null || val === undefined || val === "") return <span style={{ color: "var(--tx-faint)" }}>-</span>;
+    if (val === null || val === undefined || val === "") return <span style={{ color: "var(--muted)" }}>-</span>;
     if (col === "created_at") {
-      return <span style={{ fontSize: 12.5, color: "var(--tx-secondary)" }}>{String(val).slice(0, 10)}</span>;
+      return <span style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>{String(val).slice(0, 10)}</span>;
     }
     return String(val);
   };
@@ -474,6 +536,59 @@ export default function Resource({ name, toast, role, currentUserId }) {
     if (!form?.project) return allPages;
     return allPages.filter(p => String(p.project) === String(form.project) || String(p.project_id) === String(form.project));
   }, [form?.project, opts.page, opts.pages]);
+
+  // Distinct pages for the filter dropdown (deduplicated by name, scoped to filterProject)
+  const filterPages = useMemo(() => {
+    const allPages = opts.page || opts.pages || [];
+    const projPages = filterProject
+      ? allPages.filter(p => String(p.project) === String(filterProject) || String(p.project_id) === String(filterProject))
+      : allPages;
+    const seen = new Set();
+    const list = [];
+    projPages.forEach(p => {
+      const cleanName = (p.name || "").trim();
+      if (cleanName && !seen.has(cleanName)) {
+        seen.add(cleanName);
+        list.push(p);
+      }
+    });
+    return list;
+  }, [opts.page, opts.pages, filterProject]);
+
+  // Available sub-pages for the separate Sub Page filter dropdown
+  const filterSubPages = useMemo(() => {
+    const allPages = opts.page || opts.pages || [];
+    let candidatePages = allPages;
+    if (filterProject) {
+      candidatePages = candidatePages.filter(p =>
+        String(p.project) === String(filterProject) || String(p.project_id) === String(filterProject)
+      );
+    }
+    if (filterPage) {
+      const selectedPage = allPages.find(p => String(p.id) === String(filterPage));
+      const baseName = selectedPage ? selectedPage.name.trim() : "";
+      if (baseName) {
+        candidatePages = candidatePages.filter(p => (p.name || "").trim() === baseName);
+      } else {
+        candidatePages = candidatePages.filter(p => String(p.id) === String(filterPage));
+      }
+    }
+    const subSet = new Set();
+    candidatePages.forEach(p => {
+      if (p.sub_page_name && p.sub_page_name.trim()) {
+        subSet.add(p.sub_page_name.trim());
+      }
+    });
+    // Also include any sub_page_name from currently loaded rows
+    (rows || []).forEach(r => {
+      if (r.sub_page_name && r.sub_page_name.trim()) {
+        if (!filterProject || String(r.project) === String(filterProject)) {
+          subSet.add(r.sub_page_name.trim());
+        }
+      }
+    });
+    return Array.from(subSet).sort();
+  }, [opts.page, opts.pages, filterProject, filterPage, rows]);
 
   // Columns to display based on active records tab vs delete history tab
   const displayCols = useMemo(() => {
@@ -572,20 +687,24 @@ export default function Resource({ name, toast, role, currentUserId }) {
       {/* Filter & Search Bar */}
       <div className="card" style={{ padding: "12px 16px", marginBottom: 16 }}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
-          {/* Search box */}
+          {/* Search box with debounced real-time search */}
           <div style={{ display: "flex", gap: 8, flex: "1 1 240px", maxWidth: 360 }}>
             <input
               className="search-bar"
-              placeholder={`Search ${cfg.title.toLowerCase()}…`}
-              value={q}
-              onChange={e => {
-                setQ(e.target.value);
-                setPage(1);
-              }}
+              placeholder={`Search ${cfg.title.toLowerCase()} (e.g. BUG-0001, title, page, dev)…`}
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
               style={{ width: "100%", padding: "7px 12px" }}
             />
-            {q && (
-              <button className="btn-sec btn-sm" onClick={() => setQ("")}>
+            {searchInput && (
+              <button
+                type="button"
+                className="btn-sec btn-sm"
+                onClick={() => {
+                  setSearchInput("");
+                  setQ("");
+                }}
+              >
                 Clear
               </button>
             )}
@@ -600,6 +719,7 @@ export default function Resource({ name, toast, role, currentUserId }) {
                 onChange={e => {
                   setFilterProject(e.target.value);
                   setFilterPage("");
+                  setFilterSubPage("");
                   setPage(1);
                 }}
                 style={{ padding: "6px 10px", fontSize: 13 }}
@@ -617,18 +737,34 @@ export default function Resource({ name, toast, role, currentUserId }) {
                 value={filterPage}
                 onChange={e => {
                   setFilterPage(e.target.value);
+                  setFilterSubPage("");
                   setPage(1);
                 }}
                 style={{ padding: "6px 10px", fontSize: 13 }}
               >
                 <option value="">All Pages</option>
-                {(opts.page || opts.pages || [])
-                  .filter(pg => !filterProject || String(pg.project) === String(filterProject))
-                  .map(pg => (
-                    <option key={pg.id} value={pg.id}>
-                      {pg.sub_page_name ? `${pg.name} > ${pg.sub_page_name}` : pg.name}
-                    </option>
-                  ))}
+                {filterPages.map(pg => (
+                  <option key={pg.id} value={pg.id}>
+                    {pg.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Dedicated Sub Page Filter (for Bugs and Pages) */}
+            {(name === "bugs" || name === "pages") && (
+              <select
+                value={filterSubPage}
+                onChange={e => {
+                  setFilterSubPage(e.target.value);
+                  setPage(1);
+                }}
+                style={{ padding: "6px 10px", fontSize: 13 }}
+              >
+                <option value="">All Sub Pages</option>
+                {filterSubPages.map(sub => (
+                  <option key={sub} value={sub}>{sub}</option>
+                ))}
               </select>
             )}
 
@@ -668,7 +804,7 @@ export default function Resource({ name, toast, role, currentUserId }) {
 
             {/* My Bugs Toggle (for Bugs) */}
             {name === "bugs" && currentUserId && (
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--tx-secondary)", cursor: "pointer", marginLeft: 4 }}>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-secondary)", cursor: "pointer", marginLeft: 4 }}>
                 <input
                   type="checkbox"
                   checked={filterMyBugs}
@@ -700,17 +836,20 @@ export default function Resource({ name, toast, role, currentUserId }) {
             )}
 
             {/* Reset Filter Button */}
-            {(filterProject || filterPage || filterStatus || filterSeverity || filterMyBugs || filterRole) && (
+            {(filterProject || filterPage || filterSubPage || filterStatus || filterSeverity || filterMyBugs || filterRole || searchInput) && (
               <button
                 type="button"
                 className="btn-sec btn-sm"
                 onClick={() => {
                   setFilterProject("");
                   setFilterPage("");
+                  setFilterSubPage("");
                   setFilterStatus("");
                   setFilterSeverity("");
                   setFilterMyBugs(false);
                   setFilterRole("");
+                  setSearchInput("");
+                  setQ("");
                   setSearchParams({});
                 }}
               >
@@ -730,7 +869,7 @@ export default function Resource({ name, toast, role, currentUserId }) {
               title="Refresh records from server"
               style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
             >
-              {busy ? <Spinner size={12} color="var(--pri)" /> : <span>🔄</span>}
+              {busy ? <Spinner size={12} color="var(--primary)" /> : <span>🔄</span>}
               <span>Refresh</span>
             </button>
           </div>
@@ -741,7 +880,7 @@ export default function Resource({ name, toast, role, currentUserId }) {
       {form && (
         <div className="modal-backdrop" onClick={() => setForm(null)}>
           <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 680, width: "95%" }}>
-            <div className="card-head" style={{ borderBottom: "1px solid var(--border-default)", paddingBottom: 12, marginBottom: 16 }}>
+            <div className="card-head" style={{ borderBottom: "1px solid var(--border)", paddingBottom: 12, marginBottom: 16 }}>
               <div>
                 <h4 style={{ margin: 0 }}>
                   {form.id
@@ -753,17 +892,17 @@ export default function Resource({ name, toast, role, currentUserId }) {
                     : `Create New ${cfg.title.replace(/s$/, "")}`}
                 </h4>
                 {name === "users" && !form.id && (
-                  <span style={{ fontSize: 12, color: "var(--tx-muted)", display: "block", marginTop: 4 }}>
+                  <span style={{ fontSize: 12, color: "var(--muted)", display: "block", marginTop: 4 }}>
                     Define a new user account and assign their role (Developer, Tester, Admin, Super Admin).
                   </span>
                 )}
                 {name === "bugs" && !form.id && (
-                  <span style={{ fontSize: 12, color: "var(--tx-muted)", display: "block", marginTop: 4 }}>
+                  <span style={{ fontSize: 12, color: "var(--muted)", display: "block", marginTop: 4 }}>
                     Create defect report as <b>{role}</b> and assign a developer to resolve it.
                   </span>
                 )}
                 {name === "pages" && !form.id && (
-                  <span style={{ fontSize: 12, color: "var(--tx-muted)", display: "block", marginTop: 4 }}>
+                  <span style={{ fontSize: 12, color: "var(--muted)", display: "block", marginTop: 4 }}>
                     Define an application page and link it to an existing project.
                   </span>
                 )}
@@ -772,14 +911,14 @@ export default function Resource({ name, toast, role, currentUserId }) {
                 type="button"
                 disabled={saving}
                 onClick={() => setForm(null)}
-                style={{ background: "none", border: "none", fontSize: 20, cursor: saving ? "not-allowed" : "pointer", color: "var(--tx-muted)" }}
+                style={{ background: "none", border: "none", fontSize: 20, cursor: saving ? "not-allowed" : "pointer", color: "var(--muted)" }}
               >
                 ✕
               </button>
             </div>
 
             {name === "bugs" && !form.id && (
-              <div style={{ padding: "8px 12px", background: "var(--bg-subtle)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-default)", marginBottom: 14, fontSize: 12.5, color: "var(--tx-secondary)" }}>
+              <div style={{ padding: "8px 12px", background: "var(--card)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", marginBottom: 14, fontSize: 12.5, color: "var(--text-secondary)" }}>
                 💡 <b>Tip:</b> Select the Project first to view its specific Pages. Assign a Developer who will receive an alert to fix this issue.
               </div>
             )}
@@ -809,14 +948,14 @@ export default function Resource({ name, toast, role, currentUserId }) {
                 }
 
                 return (
-                  <label key={x.k} style={{ gridColumn: x.t === "area" ? "1 / -1" : "auto", display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, fontWeight: 600, color: "var(--tx-secondary)", ...(isFixNotes ? { background: "rgba(34, 197, 94, 0.08)", padding: "10px 14px", borderRadius: "var(--radius-md)", border: isFixNotesRequired && !form.fix_notes?.trim() ? "1px solid var(--dng-border)" : "1px solid var(--suc-border)" } : {}) }}>
+                  <label key={x.k} style={{ gridColumn: x.t === "area" ? "1 / -1" : "auto", display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, fontWeight: 600, color: "var(--text-secondary)", ...(isFixNotes ? { background: "rgba(34, 197, 94, 0.08)", padding: "10px 14px", borderRadius: "var(--radius-md)", border: isFixNotesRequired && !form.fix_notes?.trim() ? "1px solid var(--dng-border)" : "1px solid var(--suc-border)" } : {}) }}>
                     <span>
                       {isFixNotes ? "🛠️ " + x.l : x.l}
                       {(x.k === "title" || x.k === "name" || x.k === "project" || x.k === "username" || isFixNotesRequired) && (
                         <span style={{ color: "var(--dng-text)" }}> * {isFixNotesRequired ? "(Required when Fixed)" : ""}</span>
                       )}
                       {name === "bugs" && x.k === "assigned_developer" && (
-                        <span style={{ fontSize: 11, color: "var(--pri)", fontWeight: 500, marginLeft: 6 }}>(Will fix issue)</span>
+                        <span style={{ fontSize: 11, color: "var(--primary)", fontWeight: 500, marginLeft: 6 }}>(Will fix issue)</span>
                       )}
                       {name === "bugs" && x.k === "assigned_tester" && (
                         <span style={{ fontSize: 11, color: "var(--wrn-text)", fontWeight: 500, marginLeft: 6 }}>(Will verify fix)</span>
@@ -850,7 +989,7 @@ export default function Resource({ name, toast, role, currentUserId }) {
                             <option key={sp} value={sp}>{sp}</option>
                           ))}
                         </select>
-                        <span style={{ fontSize: 11, color: "var(--tx-muted)", display: "block", marginTop: 3 }}>
+                        <span style={{ fontSize: 11, color: "var(--muted)", display: "block", marginTop: 3 }}>
                           {!subPageOptions.length && form.page
                             ? "No sub-pages defined for this page"
                             : "Select sub-page section if applicable"}
@@ -924,7 +1063,7 @@ export default function Resource({ name, toast, role, currentUserId }) {
                                 setForm(null);
                                 navigate("/projects");
                               }}
-                              style={{ fontWeight: 700, textDecoration: "underline", color: "var(--pri)" }}
+                              style={{ fontWeight: 700, textDecoration: "underline", color: "var(--primary)" }}
                             >
                               Create a Project first
                             </a>.
@@ -973,18 +1112,18 @@ export default function Resource({ name, toast, role, currentUserId }) {
       <div className="card tw">
         {busy ? (
           <div className="loading-container">
-            <Spinner size={34} color="var(--pri)" strokeWidth={3} />
+            <Spinner size={34} color="var(--primary)" strokeWidth={3} />
             <p style={{ margin: 0, fontWeight: 500 }}>Loading {cfg.title.toLowerCase()}…</p>
           </div>
         ) : !rows.length ? (
           <div className="table-empty" style={{ padding: "40px 16px" }}>
             <span style={{ fontSize: 36 }}>{tab === "deleted" ? "🎉" : "📂"}</span>
-            <p style={{ marginTop: 10, fontSize: 14, fontWeight: 600, color: "var(--tx-primary)" }}>
+            <p style={{ marginTop: 10, fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
               {tab === "deleted"
                 ? `No deleted ${cfg.title.toLowerCase()} found in history.`
                 : `No records found in ${cfg.title}.`}
             </p>
-            <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "var(--tx-muted)" }}>
+            <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "var(--muted)" }}>
               {tab === "deleted"
                 ? "When items are deleted, they will be archived here with recovery options."
                 : "Get started by creating your first entry."}
@@ -1032,6 +1171,18 @@ export default function Resource({ name, toast, role, currentUserId }) {
                       ? "Page"
                       : c === "sub_page_name"
                       ? "Sub Page"
+                      : c === "developer_name"
+                      ? "Developer Name"
+                      : c === "tester_name"
+                      ? "Tester Name"
+                      : c === "code"
+                      ? "Code"
+                      : c === "title"
+                      ? "Title"
+                      : c === "severity"
+                      ? "Severity"
+                      : c === "status"
+                      ? "Status"
                       : c.replace(/_/g, " ")}
                   </th>
                 ))}
@@ -1272,18 +1423,18 @@ export default function Resource({ name, toast, role, currentUserId }) {
                 ⚠️
               </div>
               <div>
-                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--tx-primary)" }}>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>
                   Permanent Deletion
                 </h3>
-                <span style={{ fontSize: 12, color: "var(--tx-muted)" }}>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>
                   This action cannot be undone
                 </span>
               </div>
             </div>
 
-            <p style={{ fontSize: 14, color: "var(--tx-secondary)", lineHeight: 1.55, margin: "14px 0 22px" }}>
+            <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.55, margin: "14px 0 22px" }}>
               Are you sure you want to permanently delete{" "}
-              <b style={{ color: "var(--tx-primary)" }}>
+              <b style={{ color: "var(--text-primary)" }}>
                 {confirmPermanent.name || confirmPermanent.title || confirmPermanent.username || `Record #${confirmPermanent.id}`}
               </b>?
               {" "}This record will be permanently purged from the database and will no longer be recoverable.

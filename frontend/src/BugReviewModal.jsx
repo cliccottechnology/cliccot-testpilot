@@ -227,10 +227,10 @@ export default function BugReviewModal({
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 820, width: "95%" }}>
         {/* Modal Header with Bug Queue Navigation */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, borderBottom: "1px solid var(--border-default)", paddingBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, borderBottom: "1px solid var(--border)", paddingBottom: 14 }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-              <span className="mono" style={{ fontWeight: 800, fontSize: 16, color: "var(--pri)" }}>
+              <span className="mono" style={{ fontWeight: 800, fontSize: 16, color: "var(--primary)" }}>
                 {bug.code || `BUG-${bug.id}`}
               </span>
               <StatusBadge value={bug.status} />
@@ -244,7 +244,7 @@ export default function BugReviewModal({
 
               {/* Next / Previous Bug Queue Navigator */}
               {assignedBugs.length > 1 && (
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 6, padding: "2px 8px", background: "var(--bg-subtle)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-default)", fontSize: 11.5 }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 6, padding: "2px 8px", background: "var(--card)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 11.5 }}>
                   <button
                     type="button"
                     disabled={!prevBug || Boolean(navigatingBugId) || submitting}
@@ -253,10 +253,10 @@ export default function BugReviewModal({
                     style={{ padding: "2px 6px", fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4 }}
                     title={prevBug ? `Previous: ${prevBug.code || "BUG-" + prevBug.id}` : "No previous bug in queue"}
                   >
-                    {navigatingBugId === prevBug?.id && <Spinner size={10} color="var(--pri)" />}
+                    {navigatingBugId === prevBug?.id && <Spinner size={10} color="var(--primary)" />}
                     ← Prev
                   </button>
-                  <span style={{ fontWeight: 600, color: "var(--tx-muted)", margin: "0 4px" }}>
+                  <span style={{ fontWeight: 600, color: "var(--muted)", margin: "0 4px" }}>
                     Bug {currentIndex >= 0 ? currentIndex + 1 : "?"} of {assignedBugs.length}
                   </span>
                   <button
@@ -267,28 +267,28 @@ export default function BugReviewModal({
                     style={{ padding: "2px 6px", fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4 }}
                     title={nextBug ? `Next: ${nextBug.code || "BUG-" + nextBug.id}` : "No next bug in queue"}
                   >
-                    {navigatingBugId === nextBug?.id && <Spinner size={10} color="var(--pri)" />}
+                    {navigatingBugId === nextBug?.id && <Spinner size={10} color="var(--primary)" />}
                     Next →
                   </button>
                 </div>
               )}
             </div>
 
-            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--tx-primary)", lineHeight: 1.3 }}>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.3 }}>
               {bug.title}
             </h3>
-            <div style={{ marginTop: 6, fontSize: 13, color: "var(--tx-muted)", display: "flex", gap: 16, flexWrap: "wrap" }}>
-              <span>Project: <strong style={{ color: "var(--tx-primary)" }}>{bug.project_name || "-"}</strong></span>
-              <span>Page: <strong style={{ color: "var(--tx-primary)" }}>{bug.page_name || "-"}</strong></span>
-              {bug.sub_page_name && <span>Sub Page: <strong style={{ color: "var(--pri)" }}>{bug.sub_page_name}</strong></span>}
-              <span>Reported By: <strong style={{ color: "var(--tx-primary)" }}>{bug.reporter_name || "-"}</strong></span>
+            <div style={{ marginTop: 6, fontSize: 13, color: "var(--muted)", display: "flex", gap: 16, flexWrap: "wrap" }}>
+              <span>Project: <strong style={{ color: "var(--text-primary)" }}>{bug.project_name || "-"}</strong></span>
+              <span>Page: <strong style={{ color: "var(--text-primary)" }}>{bug.page_name || "-"}</strong></span>
+              {bug.sub_page_name && <span>Sub Page: <strong style={{ color: "var(--primary)" }}>{bug.sub_page_name}</strong></span>}
+              <span>Reported By: <strong style={{ color: "var(--text-primary)" }}>{bug.reporter_name || "-"}</strong></span>
             </div>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "var(--tx-muted)", padding: 4 }}
+            style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "var(--muted)", padding: 4 }}
             title="Close modal"
           >
             ✕
@@ -296,7 +296,7 @@ export default function BugReviewModal({
         </div>
 
         {/* Action Tabs */}
-        <div style={{ display: "flex", gap: 8, borderBottom: "1px solid var(--border-default)", paddingBottom: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, borderBottom: "1px solid var(--border)", paddingBottom: 10, marginBottom: 16, flexWrap: "wrap" }}>
           <button
             type="button"
             className={`btn-sm ${activeTab === "overview" ? "btn-pri" : "btn-sec"}`}
@@ -352,8 +352,8 @@ export default function BugReviewModal({
         {activeTab === "overview" && (
           <div>
             {/* Quick Status Action Bar */}
-            <div style={{ padding: "12px 14px", background: "var(--bg-subtle)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-              <div style={{ fontSize: 13, color: "var(--tx-secondary)" }}>
+            <div style={{ padding: "12px 14px", background: "var(--card)", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+              <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
                 <span>Developer: <b>{bug.developer_name || "Unassigned"}</b></span>
                 <span style={{ margin: "0 8px" }}>•</span>
                 <span>Tester: <b>{bug.tester_name || "Unassigned"}</b></span>
@@ -397,7 +397,7 @@ export default function BugReviewModal({
                     title={`Jump to next bug: ${nextBug.code || "BUG-" + nextBug.id}`}
                     style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
                   >
-                    {navigatingBugId === nextBug.id && <Spinner size={12} color="var(--pri)" />}
+                    {navigatingBugId === nextBug.id && <Spinner size={12} color="var(--primary)" />}
                     Next Bug →
                   </button>
                 )}
@@ -451,20 +451,20 @@ export default function BugReviewModal({
             {/* Bug Details Description & Steps */}
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
-                <b style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--tx-secondary)" }}>
+                <b style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--text-secondary)" }}>
                   Bug Description (Issue Details):
                 </b>
-                <div style={{ background: "var(--bg-subtle)", padding: "12px 14px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-default)", fontSize: 13.5, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                <div style={{ background: "var(--card)", padding: "12px 14px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 13.5, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
                   {bug.description || "No description provided."}
                 </div>
               </div>
 
               {bug.steps_to_reproduce && (
                 <div>
-                  <b style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--tx-secondary)" }}>
+                  <b style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--text-secondary)" }}>
                     Steps to Reproduce:
                   </b>
-                  <div style={{ background: "var(--bg-subtle)", padding: "12px 14px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-default)", fontSize: 13, whiteSpace: "pre-wrap", fontFamily: "var(--font-mono)", lineHeight: 1.5 }}>
+                  <div style={{ background: "var(--card)", padding: "12px 14px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 13, whiteSpace: "pre-wrap", fontFamily: "var(--font-mono)", lineHeight: 1.5 }}>
                     {bug.steps_to_reproduce}
                   </div>
                 </div>
@@ -476,16 +476,16 @@ export default function BugReviewModal({
                   <b style={{ display: "block", fontSize: 13, marginBottom: 6, color: "var(--suc-text)" }}>
                     🛠️ Submitted Fix Description (Ready for Tester Verification):
                   </b>
-                  <div style={{ fontSize: 13, color: "var(--tx-primary)", whiteSpace: "pre-wrap" }}>
+                  <div style={{ fontSize: 13, color: "var(--text-primary)", whiteSpace: "pre-wrap" }}>
                     <strong>Changes / Solution:</strong> {bug.fix_notes}
                   </div>
                   {bug.root_cause && (
-                    <div style={{ marginTop: 6, fontSize: 12.5, color: "var(--tx-secondary)" }}>
+                    <div style={{ marginTop: 6, fontSize: 12.5, color: "var(--text-secondary)" }}>
                       <strong>Root Cause:</strong> {bug.root_cause}
                     </div>
                   )}
                   {bug.code_changes && (
-                    <div style={{ marginTop: 6, fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--tx-muted)" }}>
+                    <div style={{ marginTop: 6, fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--muted)" }}>
                       <strong>Code Changes:</strong> {bug.code_changes}
                     </div>
                   )}
@@ -494,11 +494,11 @@ export default function BugReviewModal({
 
               {/* Tester Verification Notes if available */}
               {bug.verification_notes && (
-                <div style={{ padding: "12px 14px", background: "rgba(99, 102, 241, 0.08)", border: "1px solid var(--pri-border)", borderRadius: "var(--radius-md)" }}>
-                  <b style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--pri)" }}>
+                <div style={{ padding: "12px 14px", background: "rgba(99, 102, 241, 0.08)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
+                  <b style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--primary)" }}>
                     ✅ Tester Verification Confirmation:
                   </b>
-                  <div style={{ fontSize: 13, color: "var(--tx-primary)" }}>
+                  <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
                     {bug.verification_notes}
                   </div>
                 </div>
@@ -511,9 +511,9 @@ export default function BugReviewModal({
         {activeTab === "fix" && (
           <form onSubmit={handleFixSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {/* Context Header: Bug details reminder */}
-            <div style={{ padding: "12px 14px", background: "var(--bg-subtle)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)", fontSize: 13 }}>
+            <div style={{ padding: "12px 14px", background: "var(--card)", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", fontSize: 13 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
-                <b>Fixing Bug: <span style={{ color: "var(--pri)" }}>{bug.code}</span> - {bug.title}</b>
+                <b>Fixing Bug: <span style={{ color: "var(--primary)" }}>{bug.code}</span> - {bug.title}</b>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span>Status: <StatusBadge value={bug.status} /></span>
                   {bug.status !== "In Progress" && (
@@ -525,13 +525,13 @@ export default function BugReviewModal({
                       style={{ fontSize: 11, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}
                       title="Set status to In Progress"
                     >
-                      {submitting && actionType === "start_progress" && <Spinner size={10} color="var(--pri)" />}
+                      {submitting && actionType === "start_progress" && <Spinner size={10} color="var(--primary)" />}
                       ▶️ Set In Progress
                     </button>
                   )}
                 </div>
               </div>
-              <div style={{ color: "var(--tx-secondary)", fontSize: 12.5, whiteSpace: "pre-wrap", maxHeight: 90, overflowY: "auto", padding: "6px 8px", background: "var(--bg-app)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-default)" }}>
+              <div style={{ color: "var(--text-secondary)", fontSize: 12.5, whiteSpace: "pre-wrap", maxHeight: 90, overflowY: "auto", padding: "6px 8px", background: "var(--background)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
                 <strong>Issue Description:</strong> {bug.description || "No description"}
               </div>
               {bug.reopen_reason && (
@@ -543,7 +543,7 @@ export default function BugReviewModal({
 
             {/* Mandatory Fix Description */}
             <div>
-              <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, marginBottom: 4, color: "var(--tx-secondary)" }}>
+              <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, marginBottom: 4, color: "var(--text-secondary)" }}>
                 Description of Changes / Fixes Made <span style={{ color: "var(--dng-text)" }}>* (Required)</span>
               </label>
               <textarea
@@ -552,16 +552,16 @@ export default function BugReviewModal({
                 placeholder="Explain what code, logic, or UI changes you made to resolve this bug (e.g. Added input sanitation to prevent SQL injection, corrected authentication token refresh interceptor)..."
                 value={fixForm.fix_notes}
                 onChange={e => setFixForm({ ...fixForm, fix_notes: e.target.value })}
-                style={{ width: "100%", borderColor: !fixForm.fix_notes.trim() ? "var(--border-default)" : "var(--suc-border)" }}
+                style={{ width: "100%", borderColor: !fixForm.fix_notes.trim() ? "var(--border)" : "var(--suc-border)" }}
               />
-              <span style={{ fontSize: 11.5, color: "var(--tx-muted)", display: "block", marginTop: 3 }}>
+              <span style={{ fontSize: 11.5, color: "var(--muted)", display: "block", marginTop: 3 }}>
                 💡 <b>Required:</b> Every bug fix must include a description of what was changed before submitting.
               </span>
             </div>
 
             {/* Optional Root Cause */}
             <div>
-              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, marginBottom: 4, color: "var(--tx-secondary)" }}>
+              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, marginBottom: 4, color: "var(--text-secondary)" }}>
                 Root Cause Analysis (Optional)
               </label>
               <textarea
@@ -575,7 +575,7 @@ export default function BugReviewModal({
 
             {/* Optional Code Changes */}
             <div>
-              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, marginBottom: 4, color: "var(--tx-secondary)" }}>
+              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, marginBottom: 4, color: "var(--text-secondary)" }}>
                 Code Changes (PR / Commit / Modified Files) (Optional)
               </label>
               <input
@@ -639,7 +639,7 @@ export default function BugReviewModal({
                   title="Move to the next bug without submitting this one"
                   style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
                 >
-                  {navigatingBugId === nextBug.id && <Spinner size={12} color="var(--pri)" />}
+                  {navigatingBugId === nextBug.id && <Spinner size={12} color="var(--primary)" />}
                   Skip to Next Bug →
                 </button>
               )}
@@ -654,12 +654,12 @@ export default function BugReviewModal({
         {/* Tab 3: Tester Verification Form */}
         {activeTab === "verify" && (
           <form onSubmit={handleVerifySubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ padding: "10px 14px", background: "var(--bg-subtle)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)", fontSize: 13 }}>
+            <div style={{ padding: "10px 14px", background: "var(--card)", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", fontSize: 13 }}>
               <b>Tester Action:</b> Verify developer's fix on page <strong>{bug.page_name || "the page"}</strong> and confirm resolution.
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, marginBottom: 4, color: "var(--tx-secondary)" }}>
+              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, marginBottom: 4, color: "var(--text-secondary)" }}>
                 Tester Verification Notes
               </label>
               <textarea
@@ -672,7 +672,7 @@ export default function BugReviewModal({
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--tx-secondary)", cursor: "pointer" }}>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-secondary)", cursor: "pointer" }}>
                 <input
                   type="checkbox"
                   checked={verifyForm.close}
@@ -717,7 +717,7 @@ export default function BugReviewModal({
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, marginBottom: 4, color: "var(--tx-secondary)" }}>
+              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, marginBottom: 4, color: "var(--text-secondary)" }}>
                 Reason for Reopening <span style={{ color: "var(--dng-text)" }}>*</span>
               </label>
               <textarea
@@ -731,7 +731,7 @@ export default function BugReviewModal({
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, marginBottom: 4, color: "var(--tx-secondary)" }}>
+              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, marginBottom: 4, color: "var(--text-secondary)" }}>
                 Assign to Developer
               </label>
               <select
@@ -772,37 +772,37 @@ export default function BugReviewModal({
         {/* Tab 5: Audit History */}
         {activeTab === "history" && (
           <div>
-            <h4 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: "var(--tx-primary)" }}>
+            <h4 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>
               Bug Activity & Lifecycle Timeline
             </h4>
             {busy ? (
               <div className="loading-container" style={{ padding: "36px 16px" }}>
-                <Spinner size={26} color="var(--pri)" strokeWidth={2.75} />
+                <Spinner size={26} color="var(--primary)" strokeWidth={2.75} />
                 <p style={{ margin: 0, fontSize: 13 }}>Loading audit history…</p>
               </div>
             ) : !history.length ? (
-              <p style={{ color: "var(--tx-muted)", fontSize: 13 }}>No audit history recorded yet.</p>
+              <p style={{ color: "var(--muted)", fontSize: 13 }}>No audit history recorded yet.</p>
             ) : (
               <div className="timeline">
                 {history.map(h => (
                   <div key={h.id} className="tl-item">
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        <strong style={{ color: "var(--tx-primary)" }}>{h.user_name || "System"}</strong>
-                        <span style={{ color: "var(--tx-muted)", fontSize: 12.5 }}>action:</span>
+                        <strong style={{ color: "var(--text-primary)" }}>{h.user_name || "System"}</strong>
+                        <span style={{ color: "var(--muted)", fontSize: 12.5 }}>action:</span>
                         <StatusBadge value={h.action} />
                         {h.status_before && (
-                          <span style={{ fontSize: 12, color: "var(--tx-muted)" }}>
+                          <span style={{ fontSize: 12, color: "var(--muted)" }}>
                             ({h.status_before} → {h.status_after})
                           </span>
                         )}
                       </div>
-                      <span style={{ fontSize: 11.5, color: "var(--tx-muted)" }}>
+                      <span style={{ fontSize: 11.5, color: "var(--muted)" }}>
                         {new Date(h.created_at).toLocaleString()}
                       </span>
                     </div>
                     {h.notes && (
-                      <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--tx-secondary)", fontStyle: "italic" }}>
+                      <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-secondary)", fontStyle: "italic" }}>
                         "{h.notes}"
                       </p>
                     )}

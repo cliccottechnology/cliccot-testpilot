@@ -39,7 +39,7 @@ export default function Settings({ me, dark, setDark, toast }) {
             <h4>🏢 Workspace Profile</h4>
           </div>
           <form onSubmit={saveSettings} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--tx-secondary)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: 6 }}>
               Organization / Company Name
               <input
                 value={orgName}
@@ -49,7 +49,7 @@ export default function Settings({ me, dark, setDark, toast }) {
               />
             </label>
 
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--tx-secondary)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: 6 }}>
               Default Timezone
               <select value={timezone} onChange={e => setTimezone(e.target.value)}>
                 <option>UTC+05:30 (India Standard Time)</option>
@@ -126,9 +126,9 @@ export default function Settings({ me, dark, setDark, toast }) {
               </div>
             </div>
 
-            <div style={{ padding: 14, background: "var(--bg-subtle)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)" }}>
-              <b style={{ fontSize: 13, color: "var(--tx-primary)", display: "block", marginBottom: 4 }}>Design System Token Guidelines</b>
-              <p style={{ margin: 0, fontSize: 12.5, color: "var(--tx-muted)", lineHeight: 1.5 }}>
+            <div style={{ padding: 14, background: "var(--card)", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
+              <b style={{ fontSize: 13, color: "var(--text-primary)", display: "block", marginBottom: 4 }}>Design System Token Guidelines</b>
+              <p style={{ margin: 0, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5 }}>
                 Cliccot TestFlow standardizes all colors using CSS custom properties. Dark mode automatically inverts surfaces, borders, chart palettes, and text contrast.
               </p>
             </div>
@@ -141,7 +141,7 @@ export default function Settings({ me, dark, setDark, toast }) {
             <h4>👤 Authenticated Profile</h4>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
-            <div style={{ width: 48, height: 48, borderRadius: "50%", background: "linear-gradient(135deg, var(--pri-600), var(--pri-400))", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700 }}>
+            <div style={{ width: 48, height: 48, borderRadius: "50%", background: "linear-gradient(135deg, var(--secondary), var(--primary))", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700 }}>
               {me?.username?.slice(0, 2).toUpperCase() || "US"}
             </div>
             <div>
@@ -150,7 +150,7 @@ export default function Settings({ me, dark, setDark, toast }) {
             </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13, color: "var(--tx-secondary)" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13, color: "var(--text-secondary)" }}>
             <div><b>User ID:</b> #{me?.id}</div>
             <div><b>Role Privileges:</b> {me?.role === "Super Admin" ? "Full administrative write access across all workspaces" : "Role-governed permissions"}</div>
             <div><b>Session Status:</b> Authenticated (JWT active)</div>
@@ -163,24 +163,24 @@ export default function Settings({ me, dark, setDark, toast }) {
             <h4>⚙️ Platform & Environment Info</h4>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)", paddingBottom: 6 }}>
-              <span style={{ color: "var(--tx-muted)" }}>Platform Version:</span>
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border)", paddingBottom: 6 }}>
+              <span style={{ color: "var(--muted)" }}>Platform Version:</span>
               <b>v1.2.0 (Professional Edition)</b>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)", paddingBottom: 6 }}>
-              <span style={{ color: "var(--tx-muted)" }}>Backend Engine:</span>
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border)", paddingBottom: 6 }}>
+              <span style={{ color: "var(--muted)" }}>Backend Engine:</span>
               <b>Django 6.1.2 + Django REST Framework</b>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)", paddingBottom: 6 }}>
-              <span style={{ color: "var(--tx-muted)" }}>Frontend Framework:</span>
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border)", paddingBottom: 6 }}>
+              <span style={{ color: "var(--muted)" }}>Frontend Framework:</span>
               <b>React 18.3 + Vite + Recharts</b>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)", paddingBottom: 6 }}>
-              <span style={{ color: "var(--tx-muted)" }}>Authentication:</span>
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border)", paddingBottom: 6 }}>
+              <span style={{ color: "var(--muted)" }}>Authentication:</span>
               <b>SimpleJWT (Bearer Token Authorization)</b>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 6 }}>
-              <span style={{ color: "var(--tx-muted)" }}>API Health:</span>
+              <span style={{ color: "var(--muted)" }}>API Health:</span>
               <StatusBadge value="Active" />
             </div>
           </div>

@@ -7,20 +7,20 @@ import BugReviewModal from "./BugReviewModal";
 import Spinner from "./Spinner";
 
 const STATUS_COLORS = {
-  New: "#38bdf8",
-  Assigned: "#6366f1",
+  New: "var(--accent, #00AEBB)",
+  Assigned: "var(--primary, #06375F)",
   "In Progress": "#f59e0b",
-  Fixed: "#8b5cf6",
+  Fixed: "var(--secondary, #1D4B76)",
   Reopened: "#f43f5e",
   Verified: "#10b981",
-  Closed: "#64748b",
+  Closed: "var(--muted, #8CAFC4)",
 };
 
 const SEVERITY_COLORS = {
   Critical: "#ef4444",
   Major: "#f97316",
-  Minor: "#0ea5e9",
-  Trivial: "#64748b",
+  Minor: "var(--accent, #00AEBB)",
+  Trivial: "var(--muted, #8CAFC4)",
 };
 
 export default function Dashboard({ role, currentUserId, toast }) {
@@ -87,10 +87,10 @@ export default function Dashboard({ role, currentUserId, toast }) {
   }, [data]);
 
   const tooltipStyle = {
-    backgroundColor: "var(--bg-surface)",
-    borderColor: "var(--border-default)",
+    backgroundColor: "var(--surface)",
+    borderColor: "var(--border)",
     borderRadius: "8px",
-    color: "var(--tx-primary)",
+    color: "var(--text-primary)",
     boxShadow: "var(--shadow-md)",
     padding: "8px 12px",
     fontSize: "12px",
@@ -99,11 +99,11 @@ export default function Dashboard({ role, currentUserId, toast }) {
 
   if (!data) {
     return (
-      <div className="page" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 380, gap: 16, color: "var(--tx-muted)" }}>
-        <Spinner size={38} color="var(--pri)" strokeWidth={3} />
+      <div className="page" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 380, gap: 16, color: "var(--muted)" }}>
+        <Spinner size={38} color="var(--primary)" strokeWidth={3} />
         <div style={{ textAlign: "center" }}>
-          <p style={{ margin: 0, fontWeight: 700, fontSize: 16, color: "var(--tx-primary)" }}>Loading QA & Defect Intelligence…</p>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--tx-muted)" }}>Aggregating real-time metrics across projects and workloads</p>
+          <p style={{ margin: 0, fontWeight: 700, fontSize: 16, color: "var(--text-primary)" }}>Loading QA & Defect Intelligence…</p>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>Aggregating real-time metrics across projects and workloads</p>
         </div>
       </div>
     );
@@ -165,7 +165,7 @@ export default function Dashboard({ role, currentUserId, toast }) {
             title="Refresh all metrics"
             style={{ display: "inline-flex", alignItems: "center", gap: 7 }}
           >
-            {loading ? <Spinner size={14} color="var(--pri)" /> : <span>🔄</span>}
+            {loading ? <Spinner size={14} color="var(--primary)" /> : <span>🔄</span>}
             <span>{loading ? "Syncing…" : "Refresh"}</span>
           </button>
 
@@ -202,7 +202,7 @@ export default function Dashboard({ role, currentUserId, toast }) {
             <span className="dash-kpi-tag">
               <span style={{ color: "var(--suc-text)" }}>{data.resolved_bugs}</span> resolved
             </span>
-            <span style={{ fontWeight: 600, color: "var(--tx-secondary)" }}>
+            <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>
               {resolutionRate}% rate
             </span>
           </div>
@@ -225,7 +225,7 @@ export default function Dashboard({ role, currentUserId, toast }) {
             <span className="dash-kpi-tag">
               <span style={{ color: "var(--wrn-text)" }}>{data.in_progress_bugs || 0}</span> in progress
             </span>
-            <span style={{ fontWeight: 600, color: "var(--tx-muted)" }}>
+            <span style={{ fontWeight: 600, color: "var(--muted)" }}>
               {activeWorkloadRatio}% of total
             </span>
           </div>
@@ -245,7 +245,7 @@ export default function Dashboard({ role, currentUserId, toast }) {
             <div className="dash-kpi-number">{data.fixed_bugs}</div>
           </div>
           <div className="dash-kpi-footer">
-            <span className="dash-kpi-tag" style={{ color: data.fixed_bugs > 0 ? "var(--suc-text)" : "var(--tx-muted)" }}>
+            <span className="dash-kpi-tag" style={{ color: data.fixed_bugs > 0 ? "var(--suc-text)" : "var(--muted)" }}>
               {data.fixed_bugs > 0 ? "● Awaiting Verification" : "Queue is clear"}
             </span>
             <span className="badge badge-success" style={{ fontSize: 11, padding: "2px 6px" }}>
@@ -265,7 +265,7 @@ export default function Dashboard({ role, currentUserId, toast }) {
             <div className="dash-kpi-icon">🚨</div>
           </div>
           <div className="dash-kpi-body">
-            <div className="dash-kpi-number" style={{ color: totalUrgentIssues > 0 ? "var(--dng-text)" : "var(--tx-primary)" }}>
+            <div className="dash-kpi-number" style={{ color: totalUrgentIssues > 0 ? "var(--dng-text)" : "var(--text-primary)" }}>
               {totalUrgentIssues}
             </div>
           </div>
@@ -346,11 +346,11 @@ export default function Dashboard({ role, currentUserId, toast }) {
                       innerRadius={62}
                       outerRadius={92}
                       paddingAngle={3}
-                      stroke="var(--bg-surface)"
+                      stroke="var(--surface)"
                       strokeWidth={2}
                     >
                       {data.status_distribution.map((entry, index) => (
-                        <Cell key={`cell-status-${index}`} fill={STATUS_COLORS[entry.name] || "#94a3b8"} />
+                        <Cell key={`cell-status-${index}`} fill={STATUS_COLORS[entry.name] || "var(--muted, #8CAFC4)"} />
                       ))}
                     </Pie>
                     <Tooltip contentStyle={tooltipStyle} />
@@ -416,18 +416,18 @@ export default function Dashboard({ role, currentUserId, toast }) {
                       innerRadius={62}
                       outerRadius={92}
                       paddingAngle={3}
-                      stroke="var(--bg-surface)"
+                      stroke="var(--surface)"
                       strokeWidth={2}
                     >
                       {data.severity_distribution.map((entry, index) => (
-                        <Cell key={`cell-sev-${index}`} fill={SEVERITY_COLORS[entry.name] || "#94a3b8"} />
+                        <Cell key={`cell-sev-${index}`} fill={SEVERITY_COLORS[entry.name] || "var(--muted, #8CAFC4)"} />
                       ))}
                     </Pie>
                     <Tooltip contentStyle={tooltipStyle} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="dash-donut-center">
-                  <span className="dash-donut-center-val" style={{ color: data.critical_bugs > 0 ? "var(--dng-text)" : "var(--tx-primary)" }}>
+                  <span className="dash-donut-center-val" style={{ color: data.critical_bugs > 0 ? "var(--dng-text)" : "var(--text-primary)" }}>
                     {data.critical_bugs || 0}
                   </span>
                   <span className="dash-donut-center-lbl">Critical</span>
@@ -554,7 +554,7 @@ export default function Dashboard({ role, currentUserId, toast }) {
 
           {!data.reopened_queue?.length ? (
             <div className="dash-empty-state">
-              <div className="dash-empty-icon" style={{ background: "rgba(99, 102, 241, 0.1)", color: "var(--pri)" }}>
+              <div className="dash-empty-icon" style={{ background: "var(--card)", color: "var(--primary)" }}>
                 ✨
               </div>
               <p className="dash-empty-title">Zero Reopened Defects</p>
@@ -634,11 +634,11 @@ export default function Dashboard({ role, currentUserId, toast }) {
       <div className="dash-bottom-grid">
         {/* Developer Workload & Velocity */}
         <div className="card tw">
-          <div className="card-head" style={{ borderBottom: "1px solid var(--border-default)", padding: "14px 18px" }}>
+          <div className="card-head" style={{ borderBottom: "1px solid var(--border)", padding: "14px 18px" }}>
             <h4 style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span>👥</span> Developer Workload & Velocity
             </h4>
-            <span style={{ fontSize: 12, color: "var(--tx-muted)" }}>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>
               {data.dev_workload?.length || 0} Active Devs
             </span>
           </div>
@@ -682,7 +682,7 @@ export default function Dashboard({ role, currentUserId, toast }) {
                           {d.reopened > 0 ? (
                             <span className="badge badge-danger">{d.reopened} Reopened</span>
                           ) : (
-                            <span style={{ color: "var(--tx-muted)" }}>-</span>
+                            <span style={{ color: "var(--muted)" }}>-</span>
                           )}
                         </td>
                         <td>
@@ -693,14 +693,14 @@ export default function Dashboard({ role, currentUserId, toast }) {
                         <td>
                           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 600 }}>
-                              <span style={{ color: "var(--tx-muted)" }}>{devPct}%</span>
+                              <span style={{ color: "var(--muted)" }}>{devPct}%</span>
                             </div>
                             <div className="dash-progress-track">
                               <div
                                 className="dash-progress-fill"
                                 style={{
                                   width: `${devPct}%`,
-                                  background: devPct >= 70 ? "var(--suc-solid)" : devPct >= 40 ? "var(--pri)" : "var(--wrn-solid)",
+                                  background: devPct >= 70 ? "var(--suc-solid)" : devPct >= 40 ? "var(--primary)" : "var(--wrn-solid)",
                                 }}
                               />
                             </div>
@@ -717,11 +717,11 @@ export default function Dashboard({ role, currentUserId, toast }) {
 
         {/* Live Defect Audit Activity Trail */}
         <div className="card">
-          <div className="card-head" style={{ borderBottom: "1px solid var(--border-default)", padding: "14px 18px" }}>
+          <div className="card-head" style={{ borderBottom: "1px solid var(--border)", padding: "14px 18px" }}>
             <h4 style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span>🕒</span> Recent Defect Activity
             </h4>
-            <span style={{ fontSize: 12, color: "var(--tx-muted)" }}>Live audit log</span>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>Live audit log</span>
           </div>
 
           {!data.recent_history?.length ? (

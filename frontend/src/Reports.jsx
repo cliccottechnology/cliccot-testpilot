@@ -4,13 +4,13 @@ import api from "./api";
 import StatusBadge from "./StatusBadge";
 import Spinner from "./Spinner";
 
-const PIE_COLORS = ["#10b981", "#f43f5e", "#f59e0b", "#64748b", "#0ea5e9", "#8b5cf6"];
+const PIE_COLORS = ["#10b981", "#f43f5e", "#f59e0b", "var(--secondary, #1D4B76)", "var(--accent, #00AEBB)", "var(--primary, #06375F)"];
 
 const tooltipStyle = {
-  backgroundColor: "var(--bg-surface)",
-  borderColor: "var(--border-default)",
+  backgroundColor: "var(--surface)",
+  borderColor: "var(--border)",
   borderRadius: "8px",
-  color: "var(--tx-primary)",
+  color: "var(--text-primary)",
   boxShadow: "var(--shadow-md)"
 };
 
@@ -91,8 +91,8 @@ export default function Reports() {
 
   if (loading && !data) {
     return (
-      <div className="page" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 340, gap: 14, color: "var(--tx-muted)" }}>
-        <Spinner size={34} color="var(--pri)" strokeWidth={3} />
+      <div className="page" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 340, gap: 14, color: "var(--muted)" }}>
+        <Spinner size={34} color="var(--primary)" strokeWidth={3} />
         <p style={{ margin: 0, fontWeight: 500 }}>Generating QA executive report…</p>
       </div>
     );
@@ -131,7 +131,7 @@ export default function Reports() {
             title="Refresh Report Data"
             style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
           >
-            {loading ? <Spinner size={13} color="var(--pri)" /> : <span>🔄</span>}
+            {loading ? <Spinner size={13} color="var(--primary)" /> : <span>🔄</span>}
             <span>Refresh</span>
           </button>
           <button
@@ -151,7 +151,7 @@ export default function Reports() {
             onClick={exportJSON}
             style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
           >
-            {exportingJson ? <Spinner size={13} color="var(--pri)" /> : <span>📊</span>}
+            {exportingJson ? <Spinner size={13} color="var(--primary)" /> : <span>📊</span>}
             <span>Export JSON</span>
           </button>
           <button type="button" className="btn-sec" onClick={() => window.print()}>🖨️ Print / PDF</button>
@@ -199,7 +199,7 @@ export default function Reports() {
                   <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: "var(--tx-primary)" }} />
+              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: "var(--text-primary)" }} />
               <Legend wrapperStyle={{ fontSize: 12, paddingTop: 10 }} />
             </PieChart>
           </ResponsiveContainer>
@@ -216,7 +216,7 @@ export default function Reports() {
                   <Cell key={i} fill={PIE_COLORS[(i + 2) % PIE_COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: "var(--tx-primary)" }} />
+              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: "var(--text-primary)" }} />
               <Legend wrapperStyle={{ fontSize: 12, paddingTop: 10 }} />
             </PieChart>
           </ResponsiveContainer>
@@ -228,11 +228,11 @@ export default function Reports() {
           </div>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={data?.project_stats || []}>
-              <XAxis dataKey="name" stroke="var(--tx-muted)" fontSize={12} />
-              <YAxis allowDecimals={false} stroke="var(--tx-muted)" fontSize={12} />
-              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: "var(--tx-primary)" }} />
+              <XAxis dataKey="name" stroke="var(--muted)" fontSize={12} />
+              <YAxis allowDecimals={false} stroke="var(--muted)" fontSize={12} />
+              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: "var(--text-primary)" }} />
               <Legend wrapperStyle={{ fontSize: 12, paddingTop: 10 }} />
-              <Bar dataKey="cases" fill="#6366f1" name="Authored Test Cases" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="cases" fill="var(--primary)" name="Authored Test Cases" radius={[4, 4, 0, 0]} />
               <Bar dataKey="bugs" fill="#f43f5e" name="Reported Defects" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>

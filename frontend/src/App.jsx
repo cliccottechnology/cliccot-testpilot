@@ -33,14 +33,27 @@ function Login({ onLoginSuccess, dark, setDark }) {
   });
   const [rememberMe, setRememberMe] = useState(isRemembered);
   const [err, setErr] = useState("");
+  const [infoNotice, setInfoNotice] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const nav = useNavigate();
   const location = useLocation();
 
-  const go = async () => {
+  const handleForgotPw = (e) => {
+    e.preventDefault();
+    setInfoNotice("To reset your password, please contact your workspace administrator at admin@cliccot.com or your QA team lead.");
+  };
+
+  const handleSignUp = (e) => {
+    e.preventDefault();
+    setInfoNotice("Self-registration is restricted. Please request an account invitation from your QA Administrator.");
+  };
+
+  const go = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
     if (loading) return;
     setErr("");
+    setInfoNotice("");
     setLoading(true);
     const username = f.username.trim();
     const password = f.password.trim();
@@ -99,119 +112,178 @@ function Login({ onLoginSuccess, dark, setDark }) {
 
   return (
     <div className="login-wrapper">
-      <form className="login" onSubmit={e => { e.preventDefault(); go(); }}>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-          <button
-            type="button"
-            className="btn-sec btn-sm"
-            onClick={() => setDark(!dark)}
-            title="Toggle Light / Dark mode"
-          >
-            {dark ? "☀️ Light" : "🌙 Dark"}
-          </button>
-        </div>
-
-        <div className="login-brand">
-          <div className="login-brand-logo">🐛</div>
-          <h2>BugFlow</h2>
-          <p>Simple Bug Management System</p>
-        </div>
-
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, marginBottom: 6, color: "var(--tx-secondary)" }}>
-            Username
-          </label>
-          <input
-            placeholder="Enter username"
-            value={f.username}
-            onChange={e => setF({ ...f, username: e.target.value })}
-            autoComplete="username"
-            required
-          />
-        </div>
-
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, marginBottom: 6, color: "var(--tx-secondary)" }}>
-            Password
-          </label>
-          <div style={{ position: "relative" }}>
-            <input
-              type={showPw ? "text" : "password"}
-              placeholder="Enter password"
-              value={f.password}
-              onChange={e => setF({ ...f, password: e.target.value })}
-              autoComplete="current-password"
-              style={{ width: "100%", paddingRight: 60, marginBottom: 0 }}
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowPw(!showPw)}
-              style={{
-                position: "absolute",
-                right: 6,
-                top: "50%",
-                transform: "translateY(-50%)",
-                background: "none",
-                border: "none",
-                color: "var(--tx-muted)",
-                fontSize: 12,
-                fontWeight: 600,
-                padding: "4px 8px",
-                cursor: "pointer"
-              }}
-            >
-              {showPw ? "Hide" : "Show"}
-            </button>
-          </div>
-        </div>
-
-        {/* Remember Me Option */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--tx-secondary)", cursor: "pointer", userSelect: "none" }}>
-            <input
-              type="checkbox"
-              checked={rememberMe}
-              onChange={e => setRememberMe(e.target.checked)}
-              style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--pri)", margin: 0 }}
-            />
-            <span style={{ fontWeight: 500 }}>Remember me</span>
-          </label>
-        </div>
-
-        {err && (
-          <div
-            style={{
-              padding: "10px 14px",
-              background: "rgba(239, 68, 68, 0.1)",
-              border: "1px solid var(--dng-border)",
-              borderRadius: "var(--radius-md)",
-              color: "var(--dng-text)",
-              fontSize: 13,
-              fontWeight: 500,
-              marginBottom: 14
-            }}
-          >
-            ⚠️ {err}
-          </div>
-        )}
-
+      {/* Floating Theme Switcher */}
+      <div className="login-theme-switch-floating">
         <button
-          type="submit"
-          className={`btn-pri ${loading ? "is-loading" : ""}`}
-          style={{ width: "100%", padding: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
-          disabled={loading}
+          type="button"
+          className="login-floating-toggle"
+          onClick={() => setDark(!dark)}
+          title={`Switch to ${dark ? "Light" : "Dark"} mode`}
         >
-          {loading ? (
-            <>
-              <Spinner size={16} color="#fff" />
-              <span>Authenticating…</span>
-            </>
-          ) : (
-            "Sign In"
-          )}
+          {dark ? "☀️ Light Mode" : "🌙 Dark Mode"}
         </button>
-      </form>
+      </div>
+
+      <div className="login-card">
+        {/* Left Side: Welcome Hero with faceted low-poly overlay & diagonal split */}
+        <div className="login-hero">
+          {/* Faceted Low-Poly SVG Texture Overlay */}
+          <svg className="login-poly-bg" viewBox="0 0 600 800" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="poly-grad-1" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#00AEBB" stopOpacity="0.4" />
+                <stop offset="100%" stopColor="#06375F" stopOpacity="0.85" />
+              </linearGradient>
+              <linearGradient id="poly-grad-2" x1="100%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#00C9D8" stopOpacity="0.45" />
+                <stop offset="100%" stopColor="#1D4B76" stopOpacity="0.8" />
+              </linearGradient>
+            </defs>
+            <polygon points="0,0 240,0 140,180" fill="url(#poly-grad-1)" />
+            <polygon points="240,0 460,0 330,160" fill="url(#poly-grad-2)" />
+            <polygon points="460,0 600,0 520,200" fill="#06375F" opacity="0.6" />
+            <polygon points="0,0 140,180 0,260" fill="#021C31" opacity="0.5" />
+            <polygon points="140,180 330,160 250,350" fill="#1D4B76" opacity="0.55" />
+            <polygon points="330,160 520,200 420,370" fill="url(#poly-grad-1)" />
+            <polygon points="520,200 600,0 600,340" fill="#06375F" opacity="0.7" />
+            <polygon points="520,200 600,340 420,370" fill="#1D4B76" opacity="0.5" />
+            <polygon points="0,260 140,180 100,420" fill="url(#poly-grad-2)" />
+            <polygon points="140,180 250,350 100,420" fill="#021C31" opacity="0.6" />
+            <polygon points="250,350 420,370 280,560" fill="url(#poly-grad-1)" />
+            <polygon points="420,370 600,340 540,570" fill="#06375F" opacity="0.65" />
+            <polygon points="420,370 540,570 380,610" fill="url(#poly-grad-2)" />
+            <polygon points="250,350 280,560 140,590" fill="#1D4B76" opacity="0.5" />
+            <polygon points="100,420 250,350 140,590" fill="#00AEBB" opacity="0.4" />
+            <polygon points="0,260 100,420 0,540" fill="#06375F" opacity="0.7" />
+            <polygon points="0,540 100,420 140,590" fill="url(#poly-grad-1)" />
+            <polygon points="0,540 140,590 0,800" fill="#021C31" opacity="0.8" />
+            <polygon points="140,590 280,560 220,760" fill="url(#poly-grad-2)" />
+            <polygon points="280,560 380,610 360,800" fill="#1D4B76" opacity="0.6" />
+            <polygon points="380,610 540,570 600,740" fill="#06375F" opacity="0.7" />
+            <polygon points="540,570 600,340 600,740" fill="#021C31" opacity="0.6" />
+            <polygon points="380,610 600,740 510,800" fill="url(#poly-grad-1)" />
+            <polygon points="280,560 360,800 220,760" fill="#1D4B76" opacity="0.55" />
+            <polygon points="140,590 220,760 0,800" fill="#00C9D8" opacity="0.35" />
+            <polygon points="220,760 360,800 280,800" fill="#06375F" opacity="0.7" />
+            <polygon points="360,800 510,800 600,800" fill="url(#poly-grad-2)" />
+            <polygon points="510,800 600,740 600,800" fill="#021C31" opacity="0.8" />
+          </svg>
+
+          {/* Welcome Message */}
+          <div className="login-hero-body">
+            <h1 className="login-hero-title">Welcome Back.</h1>
+            <p className="login-hero-desc">
+              Manage defect lifecycles, accelerate test execution readiness, and coordinate fixes across your entire workspace.
+            </p>
+          </div>
+        </div>
+
+        {/* Right Side: Log in Form */}
+        <div className="login-form-container">
+          <h2 className="login-heading">Log in</h2>
+
+          <form className="login-form-content" onSubmit={go}>
+            {/* Email / Username Field */}
+            <div className="login-input-group">
+              <label className="login-label">Email</label>
+              <div className="login-field-box">
+                <input
+                  type="text"
+                  placeholder="Enter your email here..."
+                  value={f.username}
+                  onChange={e => setF({ ...f, username: e.target.value })}
+                  autoComplete="username"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Password Field */}
+            <div className="login-input-group">
+              <label className="login-label">Password</label>
+              <div className="login-field-box">
+                <input
+                  type={showPw ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={f.password}
+                  onChange={e => setF({ ...f, password: e.target.value })}
+                  autoComplete="current-password"
+                  required
+                />
+                <button
+                  type="button"
+                  className="login-pw-toggle"
+                  onClick={() => setShowPw(!showPw)}
+                  title={showPw ? "Hide password" : "Show password"}
+                >
+                  {showPw ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {err && (
+              <div className="login-error-alert" role="alert">
+                <span className="login-error-icon">⚠️</span>
+                <span>{err}</span>
+              </div>
+            )}
+
+            {/* Info Notice */}
+            {infoNotice && (
+              <div className="login-info-alert" role="status">
+                <span className="login-info-icon">ℹ️</span>
+                <span>{infoNotice}</span>
+                <button
+                  type="button"
+                  className="login-notice-close"
+                  onClick={() => setInfoNotice("")}
+                  title="Dismiss notice"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+
+            {/* Primary Action Button */}
+            <button
+              type="submit"
+              className={`login-submit-btn ${loading ? "is-loading" : ""}`}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Spinner size={16} color="currentColor" />
+                  <span>Logging in…</span>
+                </>
+              ) : (
+                "Log in"
+              )}
+            </button>
+
+            {/* Footer Links Row */}
+            <div className="login-links-row">
+              <button
+                type="button"
+                className="login-link"
+                onClick={handleForgotPw}
+              >
+                Forgot password?
+              </button>
+              <span className="login-signup-note">
+                Don't have an account?{" "}
+                <button
+                  type="button"
+                  className="login-link-bold"
+                  onClick={handleSignUp}
+                >
+                  Sign Up
+                </button>
+              </span>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }
@@ -358,8 +430,8 @@ export default function App() {
 
   if (!ready) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", gap: 14, color: "var(--tx-muted)" }}>
-        <Spinner size={34} color="var(--pri)" strokeWidth={3} />
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", gap: 14, color: "var(--muted)" }}>
+        <Spinner size={34} color="var(--primary)" strokeWidth={3} />
         <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>Loading Bug Management System…</p>
       </div>
     );
@@ -385,7 +457,7 @@ export default function App() {
       {/* Clean Sidebar */}
       <nav className={`side ${sidebarOpen ? "open" : ""}`}>
         <div className="side-brand">
-          <div className="brand-logo-mark" style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}>
+          <div className="brand-logo-mark">
             🐛
           </div>
           <div className="side-brand-text">
